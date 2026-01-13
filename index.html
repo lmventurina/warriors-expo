@@ -47,6 +47,8 @@
         .btn-admin { background: transparent; border: 1px solid var(--warn); color: var(--warn); }
         .btn-admin:hover { background: rgba(204, 85, 0, 0.2); }
         .btn-logout { background: #2c3e50; color: #fff; padding: 8px 16px; font-size: 0.8rem; }
+        .btn-del { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 4px 8px; font-size: 0.7rem; }
+        .btn-del:hover { background: var(--danger); color: #fff; }
 
         /* --- DASHBOARD STRUCTURE --- */
         .dashboard-container { height: 100vh; display: grid; grid-template-rows: 60px 1fr; }
@@ -108,6 +110,29 @@
         .slide-frame-wrapper { width: 100%; height: 600px; background: #000; border: 1px solid #333; border-radius: 8px; overflow: hidden; }
         .slide-frame-wrapper iframe { width: 100%; height: 100%; border: none; }
 
+        /* --- OPS BOARD PROGRESS BAR --- */
+        .progress-track { display: flex; gap: 5px; }
+        .phase-pill {
+            padding: 4px 8px;
+            font-size: 0.7rem;
+            border-radius: 4px;
+            background: #1e293b;
+            color: #555;
+            cursor: default;
+            border: 1px solid #333;
+        }
+        .phase-pill.active {
+            background: rgba(64, 224, 208, 0.2);
+            color: var(--safe);
+            border-color: var(--safe);
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .phase-pill.active:hover {
+            background: var(--safe);
+            color: #000;
+        }
+
         /* --- LANDING --- */
         #landing-view { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
         .hero-title { font-size: 3.5rem; background: -webkit-linear-gradient(0deg, var(--solar), var(--safe)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; text-align: center; }
@@ -127,7 +152,7 @@
 
     <!-- LANDING VIEW -->
     <div id="landing-view">
-        <h1 class="hero-title">PROJECT JÓHONAAʼÉÍ v4.0</h1>
+        <h1 class="hero-title">PROJECT JÓHONAAʼÉÍ v4.1</h1>
         <p style="color: var(--text-muted); font-size: 1.2rem; margin-top: 10px;">Cloud-Enabled Command Center</p>
         <div class="access-grid">
             <div class="access-card" onclick="app.openStudentAuth()">
@@ -222,10 +247,19 @@
         </div>
     </div>
 
+    <!-- NEW: TEAM DATA MODAL -->
+    <div id="team-details-modal" class="modal-overlay hidden">
+        <div class="auth-box" style="border-color: var(--safe); max-width: 600px; text-align: left;">
+            <h2 class="text-safe" id="td-title" style="margin-bottom: 10px;">TEAM DATA</h2>
+            <div id="td-content" style="max-height: 400px; overflow-y: auto; margin: 20px 0; color: #ccc; font-size: 0.9rem; line-height: 1.5;"></div>
+            <button class="btn" onclick="document.getElementById('team-details-modal').classList.add('hidden')" style="background:transparent; color:#666; width: 100%;">CLOSE LOG</button>
+        </div>
+    </div>
+
     <!-- FIREBASE & APP LOGIC -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
         // --- PASTE YOUR FIREBASE CONFIG HERE ---
         const firebaseConfig = {
@@ -272,7 +306,7 @@
             },
 
             hideViews: function() {
-                ['landing-view', 'student-dashboard', 'teacher-dashboard', 'tr-auth-modal', 'st-auth-modal'].forEach(id => {
+                ['landing-view', 'student-dashboard', 'teacher-dashboard', 'tr-auth-modal', 'st-auth-modal', 'team-details-modal'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.classList.add('hidden');
                 });
@@ -308,7 +342,8 @@
                 } else if(page === 'p2-mitm') {
                     ws.innerHTML = `<div class="card"><h2>PHASE 2: ATTACK SIM</h2><p>Visualizing Man-in-the-Middle Injection.</p><div class="mitm-visualizer"><div class="hacker-node">💀 BLACKOUT_25</div><div class="packet"></div></div><p>The hacker changes the packet payload from <strong>{status: '10%'}</strong> to <strong>{status: '100%'}</strong> in transit. The grid stops charging, believing the battery is full.</p></div>`;
                 } else if(page === 'p2-math') {
-                    ws.innerHTML = `<div class="card"><h2>PHASE 2: LOAD CALC</h2><p><strong>Problem:</strong> Home needs 5000W. Grid voltage is 120V. Calculate Current (I).</p><div class="router-config"><label>Power (P - Watts):</label><input id="calc-p" class="auth-input" value="5000"><label>Voltage (V - Volts):</label><input id="calc-v" class="auth-input" value="120"><button class="btn btn-primary" onclick="window.app.runCalc()">CALCULATE</button><div id="calc-status" class="status-box"></div></div></div>`;
+                    // UPDATED: Inputs now have 'w-' IDs so they save to the DB
+                    ws.innerHTML = `<div class="card"><h2>PHASE 2: LOAD CALC</h2><p><strong>Problem:</strong> Home needs 5000W. Grid voltage is 120V. Calculate Current (I).</p><div class="router-config"><label>Power (P - Watts):</label><input id="w-p2-watts" class="auth-input" value="${ws_data.p2_watts || '5000'}"><label>Voltage (V - Volts):</label><input id="w-p2-volts" class="auth-input" value="${ws_data.p2_volts || '120'}"><button class="btn btn-primary" onclick="window.app.runCalc()">CALCULATE</button><div id="calc-status" class="status-box"></div><button class="btn btn-primary" style="margin-top:15px; width:100%;" onclick="window.app.saveWS('p2')">SAVE DATA</button></div></div>`;
                 } else if(page === 'p3-harden') {
                     ws.innerHTML = `
                         <div class="card">
@@ -334,7 +369,13 @@
                 } else if(page === 'p3-grant') {
                     ws.innerHTML = `<div class="card"><h2>PHASE 3: GRANT PROPOSAL</h2><p>Draft your funding request to the DOE. Use data from Phase 1 (Sovereignty) and Phase 2 (Threats).</p><textarea id="w-p3-grant" style="background:#000; padding:10px; height:200px" placeholder="Write proposal here...">${ws_data.p3_grant||''}</textarea><button class="btn btn-primary" style="margin-top:10px" onclick="window.app.saveWS('p3g')">SAVE DRAFT</button></div>`;
                 } else if(page === 'p4-checklist') {
-                    ws.innerHTML = `<div class="card"><h2>PHASE 4: EXPO CHECKLIST</h2><p>Ensure all items are ready for the presentation.</p><div class="checklist-item"><input type="checkbox"> 1. T-Chart Poster (History)</div><div class="checklist-item"><input type="checkbox"> 2. Battery Demo (Science)</div><div class="checklist-item"><input type="checkbox"> 3. Surge Calculation (Math)</div><div class="checklist-item"><input type="checkbox"> 4. Grant Proposal Printed (ELA)</div><div class="checklist-item"><input type="checkbox"> 5. Network Diagram (Cyber)</div></div>`;
+                    // UPDATED: Checkboxes now have 'w-' IDs and use current state for checked status
+                    const c1 = ws_data.p4_c1 === "true" ? "checked" : "";
+                    const c2 = ws_data.p4_c2 === "true" ? "checked" : "";
+                    const c3 = ws_data.p4_c3 === "true" ? "checked" : "";
+                    const c4 = ws_data.p4_c4 === "true" ? "checked" : "";
+                    const c5 = ws_data.p4_c5 === "true" ? "checked" : "";
+                    ws.innerHTML = `<div class="card"><h2>PHASE 4: EXPO CHECKLIST</h2><p>Ensure all items are ready for the presentation.</p><div class="checklist-item"><input type="checkbox" id="w-p4-c1" ${c1}> 1. T-Chart Poster (History)</div><div class="checklist-item"><input type="checkbox" id="w-p4-c2" ${c2}> 2. Battery Demo (Science)</div><div class="checklist-item"><input type="checkbox" id="w-p4-c3" ${c3}> 3. Surge Calculation (Math)</div><div class="checklist-item"><input type="checkbox" id="w-p4-c4" ${c4}> 4. Grant Proposal Printed (ELA)</div><div class="checklist-item"><input type="checkbox" id="w-p4-c5" ${c5}> 5. Network Diagram (Cyber)</div><button class="btn btn-primary" style="margin-top:15px;" onclick="window.app.saveWS('p4')">SYNC PROGRESS</button></div>`;
                 }
                 this.updateOps(page);
             },
@@ -343,7 +384,13 @@
             saveWS: async function(cx) {
                 const wsData = this.state.ws; 
                 document.querySelectorAll('input[id^="w-"], textarea[id^="w-"]').forEach(i => {
-                    wsData[i.id.replace('w-','').replace(/-/g,'_')] = i.value;
+                    const key = i.id.replace('w-','').replace(/-/g,'_');
+                    // Check if it's a checkbox
+                    if (i.type === 'checkbox') {
+                        wsData[key] = i.checked ? "true" : "false";
+                    } else {
+                        wsData[key] = i.value;
+                    }
                 });
                 
                 // SAVE TO CLOUD
@@ -358,7 +405,7 @@
             },
 
             runCalc: function() {
-                const i = (document.getElementById('calc-p').value / document.getElementById('calc-v').value).toFixed(2);
+                const i = (document.getElementById('w-p2-watts').value / document.getElementById('w-p2-volts').value).toFixed(2);
                 const box = document.getElementById('calc-status');
                 if(i > 20) {
                     box.innerText = `WARNING: ${i} AMPS. BREAKER TRIPPED! SYSTEM FAILURE.`;
@@ -396,16 +443,39 @@
                 
                 if(page === 'ops') {
                     // REAL-TIME LISTENER FOR TEACHER
-                    ws.innerHTML = `<h2 class="text-warn text-mono">LIVE OPS BOARD (CLOUD STREAM)</h2><div class="team-table-container" style="background:var(--bg-panel); border:1px solid #333; border-radius:8px; overflow:hidden"><table class="team-table" style="width:100%; border-collapse:collapse"><thead style="background:#1a2332; text-align:left"><tr><th style="padding:10px">Unit</th><th>Operatives</th><th>Progress</th></tr></thead><tbody id="ops-body"><tr><td colspan="3" style="padding:20px; text-align:center">Connecting to satellite...</td></tr></tbody></table></div>`;
+                    ws.innerHTML = `<h2 class="text-warn text-mono">LIVE OPS BOARD (CLOUD STREAM)</h2><div class="team-table-container" style="background:var(--bg-panel); border:1px solid #333; border-radius:8px; overflow:hidden"><table class="team-table" style="width:100%; border-collapse:collapse"><thead style="background:#1a2332; text-align:left"><tr><th style="padding:10px">Unit</th><th>Operatives</th><th>Progress</th><th>Action</th></tr></thead><tbody id="ops-body"><tr><td colspan="4" style="padding:20px; text-align:center">Connecting to satellite...</td></tr></tbody></table></div>`;
                     
                     const q = collection(db, "teams");
                     onSnapshot(q, (snapshot) => {
                         let rows = "";
                         snapshot.forEach((doc) => {
                             const d = doc.data();
-                            rows += `<tr><td class="text-safe">${d.team}</td><td>${d.mems}</td><td><span class="badge-active" style="padding:2px 5px; border-radius:4px; border:1px solid var(--safe)">${d.lastPhase || 'Joined'}</span></td></tr>`;
+                            const lp = d.lastPhase || 'mission';
+                            
+                            // Determine active phase for highlighting
+                            const p1 = lp.includes('p1') ? 'active' : '';
+                            const p2 = lp.includes('p2') ? 'active' : '';
+                            const p3 = lp.includes('p3') ? 'active' : '';
+                            const p4 = lp.includes('p4') ? 'active' : '';
+
+                            // Click handlers for badges to view data
+                            const badgeHTML = `
+                                <div class="progress-track">
+                                    <span class="phase-pill ${p1}" onclick="window.app.viewTeamProgress('${d.team}', 'p1')">P1</span>
+                                    <span class="phase-pill ${p2}" onclick="window.app.viewTeamProgress('${d.team}', 'p2')">P2</span>
+                                    <span class="phase-pill ${p3}" onclick="window.app.viewTeamProgress('${d.team}', 'p3')">P3</span>
+                                    <span class="phase-pill ${p4}" onclick="window.app.viewTeamProgress('${d.team}', 'p4')">P4</span>
+                                </div>
+                            `;
+
+                            rows += `<tr>
+                                <td class="text-safe" style="font-weight:bold;">${d.team}</td>
+                                <td style="color:#bbb;">${d.mems}</td>
+                                <td>${badgeHTML}</td>
+                                <td><button class="btn-del" onclick="window.app.deleteTeam('${d.team}')">Remove</button></td>
+                            </tr>`;
                         });
-                        document.getElementById('ops-body').innerHTML = rows || '<tr><td colspan="3" style="padding:20px; text-align:center">No active units.</td></tr>';
+                        document.getElementById('ops-body').innerHTML = rows || '<tr><td colspan="4" style="padding:20px; text-align:center">No active units.</td></tr>';
                     });
 
                 } else if(page === 'slides') {
@@ -439,6 +509,53 @@
                     `;
                 } else if(page === 'vault') {
                     ws.innerHTML = `<div class="card"><h2 class="text-warn">SOLUTION VAULT</h2><p><strong>Math Key:</strong> I = 41.6 Amps.</p></div>`;
+                }
+            },
+
+            // --- ADMIN ACTIONS ---
+            deleteTeam: async function(teamName) {
+                if(confirm(`Are you sure you want to PERMANENTLY delete Team "${teamName}"?`)) {
+                    await deleteDoc(doc(db, "teams", teamName));
+                }
+            },
+
+            viewTeamProgress: async function(teamName, phase) {
+                const docRef = doc(db, "teams", teamName);
+                const snap = await getDoc(docRef);
+                
+                if (snap.exists()) {
+                    const d = snap.data();
+                    const w = d.worksheets || {};
+                    let content = '';
+
+                    if (phase.includes('p1')) {
+                        content = `<h3>Phase 1 Data</h3>
+                        <p><strong>Coal Era:</strong> ${w.p1_coal || 'No Data'}</p>
+                        <p><strong>Solar Era:</strong> ${w.p1_solar || 'No Data'}</p>
+                        <p><strong>Battery:</strong> Anode: ${w.p1_anode}, ${w.p1_volts}V</p>`;
+                    } else if (phase.includes('p2')) {
+                        content = `<h3>Phase 2 Math Data</h3>
+                        <p><strong>Power Input:</strong> ${w.p2_watts || 'N/A'} Watts</p>
+                        <p><strong>Voltage Input:</strong> ${w.p2_volts || 'N/A'} Volts</p>
+                        <p>Note: Teacher should verify calculations manually.</p>`;
+                    } else if (phase.includes('p3')) {
+                        content = `<h3>Phase 3 Grant</h3><div style="background:#111; padding:10px;">${w.p3_grant || 'No Draft'}</div>`;
+                    } else if (phase.includes('p4')) {
+                        content = `<h3>Phase 4 Checklist</h3>
+                        <ul>
+                            <li>T-Chart: ${w.p4_c1 === "true" ? "✅" : "⬜"}</li>
+                            <li>Battery Demo: ${w.p4_c2 === "true" ? "✅" : "⬜"}</li>
+                            <li>Surge Calc: ${w.p4_c3 === "true" ? "✅" : "⬜"}</li>
+                            <li>Grant Prop: ${w.p4_c4 === "true" ? "✅" : "⬜"}</li>
+                            <li>Network Map: ${w.p4_c5 === "true" ? "✅" : "⬜"}</li>
+                        </ul>`;
+                    } else {
+                        content = `<p>Raw Data for ${phase}:</p><pre>${JSON.stringify(w, null, 2)}</pre>`;
+                    }
+
+                    document.getElementById('td-title').innerText = `MISSION LOG: ${teamName}`;
+                    document.getElementById('td-content').innerHTML = content;
+                    document.getElementById('team-details-modal').classList.remove('hidden');
                 }
             },
 
