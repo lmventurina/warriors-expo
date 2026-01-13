@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Jóhonaaʼéí Portal</title>
+    <title>Project Jóhonaaʼéí Portal V2</title>
     <script crossorigin src="https://unpkg.com/react@18.2.0/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -43,12 +43,11 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // Safe Global Access
+        // --- 1. GLOBAL SETUP & HOOKS ---
         const React = window.React;
         const ReactDOM = window.ReactDOM;
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
-        // --- FIREBASE HOOK (Moved to top for scope safety) ---
         const useFirebase = () => {
             const [db, setDb] = useState(null);
             const [user, setUser] = useState(null);
@@ -63,11 +62,9 @@
                             await new Promise(r => setTimeout(r, 100));
                             attempts++;
                         }
-
                         if (!window.firebaseModules) throw new Error("Failed to load Firebase libraries.");
 
                         const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore } = window.firebaseModules;
-                        
                         const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
                         const app = initializeApp(firebaseConfig);
                         const auth = getAuth(app);
@@ -84,7 +81,6 @@
                         }
 
                         onAuthStateChanged(auth, (u) => setUser(u));
-
                     } catch (err) {
                         console.error("Firebase Init Error:", err);
                         setError(err.message);
@@ -96,7 +92,7 @@
             return { db, user, appId, error };
         };
 
-        // --- ICONS ---
+        // --- 2. ASSETS & CONSTANTS ---
         const ICONS = {
             Shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
             User: <g><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></g>,
@@ -124,31 +120,20 @@
             Users: <g><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></g>
         };
 
-        const LucideIcon = ({ name, size = 20, className }) => {
+        const LucideIcon = React.memo(({ name, size = 20, className }) => {
             if (!ICONS[name]) return <span className="text-red-500">?</span>;
             return (
-                <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    width={size} 
-                    height={size} 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    className={className}
-                >
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
                     {ICONS[name]}
                 </svg>
             );
-        };
+        });
 
-        // --- GLOSSARY SYSTEM ---
+        // --- GLOSSARY & TOOLTIPS ---
         const GLOSSARY = {
             "Galvanic Cell": "A device that generates electricity through a chemical reaction (like a battery).",
             "Inverter": "A device that changes solar power (DC) into the power used by homes (AC).",
-            "IoT": "Internet of Things: Everyday objects (like smart meters) connected to the internet.",
+            "IoT": "Internet of Things: Everyday objects connected to the internet.",
             "Attack Surface": "The total number of points where an unauthorized user can try to enter a system.",
             "Thermal Runaway": "A chain reaction where a battery gets hotter and hotter, potentially causing a fire.",
             "Kilowatt-hours": "A unit of energy. Running a 1000-watt microwave for 1 hour uses 1 kWh.",
@@ -156,10 +141,10 @@
             "Encryption": "Scrambling data using a secret code so only authorized people can read it.",
             "Packet Sniffer": "A tool used to intercept and read data packets traveling across a network.",
             "Firewall": "A security system that blocks unauthorized access to or from a private network.",
-            "Redox": "A chemical reaction involving the transfer of electrons (Reduction + Oxidation).",
-            "Load": "The amount of power being drawn from the electrical grid at any given time.",
-            "Vanadium": "A metal used in large flow batteries that is safer and longer-lasting than Lithium.",
-            "Smart Meter": "A digital meter that records energy usage and sends it to the utility company wirelessly."
+            "Redox": "Chemical reaction involving transfer of electrons.",
+            "Load": "The amount of power being drawn from the electrical grid.",
+            "Vanadium": "A metal used in large flow batteries that is safer than Lithium.",
+            "Smart Meter": "A digital meter that records energy usage and sends it wirelesssly."
         };
 
         const ROLES_GLOSSARY = {
@@ -167,31 +152,25 @@
             "Historian": "Research historical context, treaty rights, and social impact of energy decisions.",
             "Cyber Analyst": "Identify network vulnerabilities, secure data flow, and analyze cyber threats.",
             "Energy Scientist": "Calculate energy loads, design battery systems, and understand chemical storage.",
-            "Comms Officer": "Draft reports, translate technical jargon for the community, and manage public messaging."
+            "Comms Officer": "Draft reports, translate technical jargon, and manage public messaging."
         };
 
-        const TermTooltip = ({ term, definition }) => {
+        const TermTooltip = React.memo(({ term, definition }) => {
             const [visible, setVisible] = useState(false);
-            
             return (
-                <span 
-                    className="relative inline-block border-b-2 border-dashed border-sky-500 cursor-help group"
-                    onMouseEnter={() => setVisible(true)}
-                    onMouseLeave={() => setVisible(false)}
-                >
+                <span className="relative inline-block border-b-2 border-dashed border-sky-500 cursor-help group" onMouseEnter={() => setVisible(true)} onMouseLeave={() => setVisible(false)}>
                     <span className="text-sky-300 font-medium">{term}</span>
                     {visible && (
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-slate-900 border border-sky-500 rounded-lg shadow-2xl z-50 text-xs text-white pointer-events-none animate-in fade-in zoom-in-95 duration-200">
-                            <div className="font-bold text-sky-400 mb-1 uppercase tracking-wider">{term}</div>
-                            {definition}
+                            <div className="font-bold text-sky-400 mb-1 uppercase tracking-wider">{term}</div>{definition}
                             <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-sky-500"></div>
                         </div>
                     )}
                 </span>
             );
-        };
+        });
 
-        const RoleTooltip = ({ role }) => {
+        const RoleTooltip = React.memo(({ role }) => {
             const [visible, setVisible] = useState(false);
             const [coords, setCoords] = useState({ top: 0, left: 0 });
             const triggerRef = useRef(null);
@@ -200,63 +179,42 @@
             const showTooltip = () => {
                 if (triggerRef.current) {
                     const rect = triggerRef.current.getBoundingClientRect();
-                    setCoords({
-                        top: rect.top,
-                        left: rect.right + 10 // Offset to the right
-                    });
+                    setCoords({ top: rect.top, left: rect.right + 10 });
                     setVisible(true);
                 }
             };
 
             return (
                  <>
-                    <div 
-                        ref={triggerRef}
-                        className="inline-block cursor-help border-b border-dashed border-sky-500/50 mb-0.5"
-                        onMouseEnter={showTooltip}
-                        onMouseLeave={() => setVisible(false)}
-                    >
+                    <div ref={triggerRef} className="inline-block cursor-help border-b border-dashed border-sky-500/50 mb-0.5" onMouseEnter={showTooltip} onMouseLeave={() => setVisible(false)}>
                         <span className="text-[10px] text-sky-500 font-mono uppercase tracking-wider">{role}</span>
                     </div>
                     {visible && ReactDOM.createPortal(
-                        <div 
-                            className="fixed w-56 p-3 bg-slate-900 border border-sky-500 rounded-lg shadow-2xl z-[9999] text-xs text-stone-200 pointer-events-none animate-in fade-in zoom-in-95 duration-200"
-                            style={{ 
-                                top: coords.top, 
-                                left: coords.left,
-                                transform: 'translateY(-10%)' // Slight vertical adjustment to center/align
-                            }}
-                        >
-                            <div className="font-bold text-sky-400 mb-1">{role}</div>
-                            {definition}
+                        <div className="fixed w-56 p-3 bg-slate-900 border border-sky-500 rounded-lg shadow-2xl z-[9999] text-xs text-stone-200 pointer-events-none animate-in fade-in zoom-in-95 duration-200" style={{ top: coords.top, left: coords.left, transform: 'translateY(-10%)' }}>
+                            <div className="font-bold text-sky-400 mb-1">{role}</div>{definition}
                         </div>,
                         document.body
                     )}
                 </>
             );
-        };
+        });
 
-        const GlossaryText = ({ text }) => {
+        const GlossaryText = React.memo(({ text }) => {
             if (!text) return null;
             const terms = Object.keys(GLOSSARY);
             const regex = new RegExp(`\\b(${terms.join('|')})\\b`, 'gi');
-            
             const parts = text.split(regex);
-            
             return (
                 <span>
                     {parts.map((part, i) => {
                         const matchedKey = terms.find(t => t.toLowerCase() === part.toLowerCase());
-                        if (matchedKey) {
-                            return <TermTooltip key={i} term={part} definition={GLOSSARY[matchedKey]} />;
-                        }
-                        return part;
+                        return matchedKey ? <TermTooltip key={i} term={part} definition={GLOSSARY[matchedKey]} /> : part;
                     })}
                 </span>
             );
-        };
+        });
 
-        const TabInstructions = ({ tab }) => {
+        const TabInstructions = React.memo(({ tab }) => {
             const instructions = {
                 mission: "Welcome to Mission Control. Here you track your squad's progress. Check off tasks as you complete them to unlock the next phases of the operation.",
                 timeline: "This is the master schedule. Click on any phase node to expand it and see the detailed breakdown of activities and intel for that week.",
@@ -264,20 +222,36 @@
                 labs: "Welcome to the Simulation Lab. Select a module (Battery, Network, or Crypto) to run virtual experiments. Use the data you gather here for your reports.",
                 tools: "Field Utilities. Use the Load Balancer to calculate power requirements and ensure grid stability."
             };
-
             if (!instructions[tab]) return null;
-
             return (
                 <div className="bg-sky-900/20 border border-sky-500/30 p-4 rounded-lg mb-6 flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
-                    <div className="bg-sky-500/20 p-2 rounded-full shrink-0">
-                        <LucideIcon name="Info" className="text-sky-400" size={20} />
-                    </div>
-                    <div>
-                        <h4 className="text-sky-400 font-bold text-sm uppercase tracking-wider mb-1">Directive</h4>
-                        <p className="text-sm text-sky-100 leading-relaxed">{instructions[tab]}</p>
-                    </div>
+                    <div className="bg-sky-500/20 p-2 rounded-full shrink-0"><LucideIcon name="Info" className="text-sky-400" size={20} /></div>
+                    <div><h4 className="text-sky-400 font-bold text-sm uppercase tracking-wider mb-1">Directive</h4><p className="text-sm text-sky-100 leading-relaxed">{instructions[tab]}</p></div>
                 </div>
             );
+        });
+
+        // --- DATA CONSTANTS ---
+        const PHASES = [
+            { id: 1, title: "Phase 1: Foundation", duration: "Weeks 1-2", weekRange: [1, 2], intel: "We are transitioning to Solar. Map the network and understand battery chemistry.", tasks: [{ id: "p1_t1", text: "History: Compare 'Era of Coal' vs 'Era of Sun'", role: "Historian", worksheetId: "history_tchart", description: "Research the economic impact of NGS vs Kayenta Solar." }, { id: "p1_t2", text: "Cyber: Map IoT Ecosystem & Vulnerabilities", role: "Analyst", worksheetId: "cyber_map", description: "Draw a diagram connecting the Solar Panel -> Inverter -> Cloud." }, { id: "p1_t3", text: "Chem: Galvanic Cell Challenge", role: "Scientist", worksheetId: "chem_lab", description: "Build a battery using lemons or saltwater." }, { id: "p1_t4", text: "Math: Calculate Home kWh Usage", role: "Scientist", description: "Calculate total kWh a standard Navajo home uses." }] },
+            { id: 2, title: "Phase 2: The Attack", duration: "Weeks 3-4", weekRange: [3, 4], intel: "ALERT: Man-in-the-Middle attack confirmed. Spoofed signals detected.", tasks: [{ id: "p2_t1", text: "Cyber: Sniff the Wire", role: "Analyst", description: "Use the Packet Sniffer to find the anomalous data packet." }, { id: "p2_t2", text: "Chem: Thermal Runaway Sim", role: "Scientist", description: "Simulate battery overcharge." }, { id: "p2_t3", text: "Math: Blackout Calculus (P=IV)", role: "Scientist", worksheetId: "math_calc", description: "Use P=IV to prove hacker's load data causes overload." }, { id: "p2_t4", text: "ELA: Write Incident Report", role: "Communicator", worksheetId: "ela_report", description: "Draft a formal report of the cyber attack." }] },
+            { id: 3, title: "Phase 3: Defense", duration: "Weeks 5-6", weekRange: [5, 6], intel: "Harden the network. Encrypt traffic and propose safer batteries.", tasks: [{ id: "p3_t1", text: "Cyber: Defense in Depth", role: "Analyst", description: "Re-configure network to use HTTPS." }, { id: "p3_t2", text: "ELA: Grant Proposal Writing", role: "Communicator", description: "Write a proposal to Dept of Energy for upgrades." }, { id: "p3_t3", text: "History: Data Sovereignty", role: "Historian", description: "Create a timeline of Navajo Sovereignty." }, { id: "p3_t4", text: "Chem: Vanadium Recommendation", role: "Scientist", description: "Research Vanadium Redox Flow batteries." }] },
+            { id: 4, title: "Phase 4: Expo", duration: "Weeks 7-8", weekRange: [7, 8], intel: "Operation K'é. Present your SOC to the elders.", tasks: [{ id: "p4_t1", text: "Build: Assemble SOC Booth", role: "All", description: "Construct the Tri-Fold board." }, { id: "p4_t2", text: "ELA: Elevator Pitch Practice", role: "Communicator", description: "Write and memorize a 2-minute speech." }, { id: "p4_t3", text: "Team: Audience Adaptation", role: "All", description: "Rehearse presentation for elders." }, { id: "p4_t4", text: "Demo: Final System Test", role: "Scientist", description: "Perform final dry-run of battery demo." }] }
+        ];
+
+        const LESSON_PLANS = {
+            1: { title: "Phase 1: Foundation", subjects: [{ subject: "History", topic: "The Era of Coal vs. Sun", alignment: "NM-H.9-12.2", days: [{ day: "Day 1", title: "Project Kickoff", detail: "Discuss NGS closure.", materials: ["Projector"], presentation: { title: "Coal vs Solar", slides: [{ title: "Today's Mission", content: ["Explain shift to Solar."] }, { title: "NGS", content: ["2250 MW Capacity"], image: "https://placehold.co/800x450/334155/FFFFFF?text=NGS+Plant" }, { title: "Activity", content: ["Discuss impact."] }] } }, { day: "Day 2", title: "Comparative Analysis", detail: "T-Chart activity.", worksheetId: "history_tchart" }, { day: "Day 3", title: "Sovereignty Intro", detail: "Define Energy Sovereignty.", presentation: { title: "Sovereignty", slides: [{ title: "Definition", content: ["Right to govern."] }] } }] }, { subject: "Cybersecurity", topic: "IoT & Attack Surfaces", alignment: "CSTA 3A-NI-04", days: [{ day: "Day 4", title: "Network Basics", detail: "Lecture on IoT.", presentation: { title: "IoT Basics", slides: [{ title: "What is IoT?", content: ["Internet of Things"], image: "https://placehold.co/800x450/334155/FFFFFF?text=IoT+Diagram" }] } }, { day: "Day 5", title: "Threat Modeling", detail: "Cyber Map activity.", worksheetId: "cyber_map" }] }, { subject: "Chemistry", topic: "Battery Chemistry", alignment: "HS-PS1-7", days: [{ day: "Day 6", title: "Galvanic Cells", detail: "Lemon battery lab.", worksheetId: "chem_lab", presentation: { title: "Galvanic Cells", slides: [{ title: "Anatomy", content: ["Anode, Cathode"], image: "https://placehold.co/800x450/334155/FFFFFF?text=Galvanic+Cell" }] } }, { day: "Day 7", title: "Series vs Parallel", detail: " connecting cells." }] }, { subject: "Math", topic: "Energy Quantities", alignment: "HSN.Q.A.1", days: [{ day: "Day 8", title: "Home Audit", detail: "Calculate kWh.", presentation: { title: "Kilowatts", slides: [{ title: "Power vs Energy", content: ["kW vs kWh"] }] } }, { day: "Day 9", title: "Solar Sizing", detail: "Array calculation." }] }] },
+            2: { title: "Phase 2: The Attack", subjects: [{ subject: "Math", topic: "Power Law (P=IV)", alignment: "HSA.CED.A.4", days: [{ day: "Day 5", title: "Grid Load", detail: "Blackout Calculus.", worksheetId: "math_calc", presentation: { title: "Blackout Formula", slides: [{ title: "P=IV", content: ["Power Law"], image: "https://placehold.co/800x450/334155/FFFFFF?text=Grid+Load" }] } }, { day: "Day 6", title: "Failure Point", detail: "Calc failure amps." }] }, { subject: "Cybersecurity", topic: "Packet Sniffing", alignment: "CSTA 3A-NI-05", days: [{ day: "Day 1", title: "Handshake", detail: "Simulate Wi-Fi.", presentation: { title: "Packet Sniffing", slides: [{ title: "Packets", content: ["Data chunks"] }] } }, { day: "Day 2", title: "Inspection", detail: "Wireshark sim." }] }] },
+            3: { title: "Phase 3: Defense", subjects: [{ subject: "Cybersecurity", topic: "Encryption", alignment: "CSTA 3A-NI-06", days: [{ day: "Day 1", title: "Encryption 101", detail: "Caesar Ciphers.", presentation: { title: "Encryption", slides: [{ title: "Ciphertext", content: ["Scrambled data"], image: "https://placehold.co/800x450/334155/FFFFFF?text=Encryption" }] } }] }] },
+            4: { title: "Phase 4: Expo", subjects: [{ subject: "Engineering", topic: "Integration", alignment: "HS-ETS1-3", days: [{ day: "Day 1", title: "Booth Build", detail: "Construct booth.", presentation: { title: "Integration", slides: [{ title: "Layout", content: ["Flow"], image: "https://placehold.co/800x450/334155/FFFFFF?text=Booth+Layout" }] } }] }] }
+        };
+
+        const WORKSHEETS = {
+            history_tchart: { title: "History: Coal vs. Solar T-Chart", fields: [{ id: "coal_jobs", label: "Coal Jobs", type: "textarea" }, { id: "solar_jobs", label: "Solar Jobs", type: "textarea" }, { id: "analysis", label: "Analysis", type: "textarea" }] },
+            cyber_map: { title: "Cyber: IoT Network Map", fields: [{ id: "topology", label: "Topology", type: "textarea" }, { id: "risk_a", label: "Risk A", type: "text" }] },
+            chem_lab: { title: "Chemistry: Galvanic Cell Log", fields: [{ id: "anode", label: "Anode", type: "text" }, { id: "voltage", label: "Voltage", type: "number" }] },
+            math_calc: { title: "Math: Blackout Calculus", fields: [{ id: "load", label: "Total Load", type: "number" }, { id: "result", label: "Result", type: "text" }] },
+            ela_report: { title: "ELA: Incident Report", fields: [{ id: "desc", label: "Description", type: "textarea" }] }
         };
 
         // --- SIMULATION COMPONENTS ---
@@ -286,22 +260,13 @@
             const [cathode, setCathode] = useState('copper');
             const potentials = { zinc: -0.76, magnesium: -2.37, copper: 0.34, silver: 0.80, iron: -0.44 };
             const voltage = (potentials[cathode] - potentials[anode]).toFixed(2);
-            
             return (
                 <div className="h-full flex flex-col items-center justify-center space-y-8 p-4">
                     <div className="text-center"><h2 className="text-2xl font-bold text-white mb-2">Virtual Galvanic Cell</h2><p className="text-stone-400 text-sm">Select metals to build your battery.</p></div>
                     <div className="flex gap-8 items-end">
-                        <div className="flex flex-col gap-2 items-center">
-                            <label className="text-xs font-bold text-stone-500 uppercase">Anode (-)</label>
-                            <select value={anode} onChange={(e) => setAnode(e.target.value)} className="bg-stone-900 border border-stone-600 rounded p-2 text-white"><option value="zinc">Zinc (-0.76V)</option><option value="magnesium">Magnesium (-2.37V)</option><option value="iron">Iron (-0.44V)</option></select>
-                            <div className="w-24 h-32 bg-stone-700 border-2 border-stone-500 rounded relative"><div className="absolute inset-0 bg-yellow-500/20 flex items-center justify-center text-xs text-yellow-200">Electrolyte</div><div className="w-4 h-24 bg-gray-400 absolute top-4 left-4 mx-auto border border-gray-600"></div></div>
-                        </div>
-                        <div className="flex flex-col items-center gap-2 mb-10"><div className="text-4xl font-mono font-bold text-emerald-400 bg-black px-4 py-2 rounded border border-stone-700 shadow-[0_0_15px_rgba(52,211,153,0.3)]">{voltage} V</div><span className="text-xs text-stone-500">Potential Difference</span></div>
-                        <div className="flex flex-col gap-2 items-center">
-                            <label className="text-xs font-bold text-stone-500 uppercase">Cathode (+)</label>
-                            <select value={cathode} onChange={(e) => setCathode(e.target.value)} className="bg-stone-900 border border-stone-600 rounded p-2 text-white"><option value="copper">Copper (+0.34V)</option><option value="silver">Silver (+0.80V)</option></select>
-                            <div className="w-24 h-32 bg-stone-700 border-2 border-stone-500 rounded relative"><div className="absolute inset-0 bg-yellow-500/20 flex items-center justify-center text-xs text-yellow-200">Electrolyte</div><div className="w-4 h-24 bg-orange-400 absolute top-4 right-4 mx-auto border border-orange-600"></div></div>
-                        </div>
+                        <div className="flex flex-col gap-2 items-center"><label className="text-xs font-bold text-stone-500 uppercase">Anode (-)</label><select value={anode} onChange={(e) => setAnode(e.target.value)} className="bg-stone-900 border border-stone-600 rounded p-2 text-white"><option value="zinc">Zinc</option><option value="magnesium">Magnesium</option></select><div className="w-24 h-32 bg-stone-700 border-2 border-stone-500 rounded relative"><div className="absolute inset-0 bg-yellow-500/20 flex items-center justify-center text-xs text-yellow-200">Electrolyte</div></div></div>
+                        <div className="flex flex-col items-center gap-2 mb-10"><div className="text-4xl font-mono font-bold text-emerald-400 bg-black px-4 py-2 rounded border border-stone-700">{voltage} V</div></div>
+                        <div className="flex flex-col gap-2 items-center"><label className="text-xs font-bold text-stone-500 uppercase">Cathode (+)</label><select value={cathode} onChange={(e) => setCathode(e.target.value)} className="bg-stone-900 border border-stone-600 rounded p-2 text-white"><option value="copper">Copper</option><option value="silver">Silver</option></select><div className="w-24 h-32 bg-stone-700 border-2 border-stone-500 rounded relative"><div className="absolute inset-0 bg-yellow-500/20 flex items-center justify-center text-xs text-yellow-200">Electrolyte</div></div></div>
                     </div>
                 </div>
             );
@@ -316,45 +281,32 @@
                 if (running) {
                     interval = setInterval(() => {
                         const isBad = Math.random() < 0.3;
-                        const newPacket = { id: Date.now(), hex: Array.from({length: 4}, () => Math.floor(Math.random()*255).toString(16).padStart(2, '0')).join(' ').toUpperCase(), bad: isBad, voltage: isBad ? (14.2 + Math.random()).toFixed(1) : "12.4" };
-                        setPackets(prev => [newPacket, ...prev].slice(0, 10));
+                        const newPacket = { id: Date.now(), hex: "A1 B2 C3", bad: isBad, voltage: isBad ? "14.5" : "12.4" };
+                        setPackets(prev => [newPacket, ...prev].slice(0, 8));
                     }, 1000);
                 }
                 return () => clearInterval(interval);
             }, [running]);
-            const handlePacketClick = (pkt) => {
-                if (pkt.bad) { setScore(s => s + 10); setPackets(prev => prev.filter(p => p.id !== pkt.id)); } else { setScore(s => Math.max(0, s - 5)); }
-            };
             return (
                 <div className="h-full flex flex-col p-4">
-                    <div className="flex justify-between items-center mb-4"><h2 className="text-xl font-bold text-white">Packet Sniffer</h2><div className="flex gap-4 items-center"><div className="font-mono text-emerald-400">SCORE: {score}</div><button onClick={() => { setRunning(!running); if(!running) setPackets([]); }} className={`px-4 py-2 rounded font-bold text-xs ${running ? 'bg-red-600 hover:bg-red-500' : 'bg-emerald-600 hover:bg-emerald-500'} text-white`}>{running ? 'STOP SCAN' : 'START SCAN'}</button></div></div>
+                    <div className="flex justify-between items-center mb-4"><h2 className="text-xl font-bold text-white">Packet Sniffer</h2><button onClick={() => setRunning(!running)} className="px-4 py-2 bg-emerald-600 rounded text-white text-xs">{running ? 'STOP' : 'START'}</button></div>
                     <div className="flex-1 bg-black rounded border border-stone-700 p-4 font-mono text-xs overflow-hidden relative">
-                        {!running && <div className="absolute inset-0 flex items-center justify-center text-stone-500">SYSTEM IDLE // PRESS START</div>}
-                        <div className="space-y-2">
-                            {packets.map(pkt => (
-                                <div key={pkt.id} onClick={() => handlePacketClick(pkt)} className={`p-2 border-l-2 cursor-pointer hover:bg-stone-900 transition-colors flex justify-between items-center ${pkt.bad ? 'border-red-500 animate-pulse text-red-400' : 'border-emerald-500 text-stone-400'}`}>
-                                    <span>DATA: {pkt.hex}</span><span>V_BATT: {pkt.voltage}V</span>
-                                </div>
-                            ))}
-                        </div>
+                        {packets.map(pkt => <div key={pkt.id} className={`p-2 border-l-2 mb-1 ${pkt.bad ? 'border-red-500 text-red-400' : 'border-emerald-500 text-stone-400'}`}>DATA: {pkt.hex} | V: {pkt.voltage}V</div>)}
                     </div>
-                    <p className="text-xs text-stone-500 mt-2">Mission: Click the RED packets transmitting high voltage (Bad Data) to quarantine them.</p>
                 </div>
             );
         };
 
         const CryptoSim = () => {
-            const [input, setInput] = useState('ENERGY SOVEREIGNTY');
+            const [input, setInput] = useState('ENERGY');
             const [shift, setShift] = useState(3);
-            const encrypt = (str, s) => str.toUpperCase().replace(/[A-Z]/g, (char) => String.fromCharCode(((char.charCodeAt(0) - 65 + s) % 26) + 65));
+            const encrypt = (str, s) => str.toUpperCase().replace(/[A-Z]/g, c => String.fromCharCode(((c.charCodeAt(0)-65+s)%26)+65));
             return (
                 <div className="h-full flex flex-col p-4 items-center justify-center">
-                    <h2 className="text-xl font-bold text-white mb-6">Caesar Cipher Decoder</h2>
-                    <div className="w-full max-w-md space-y-6">
-                        <div><label className="text-xs font-bold text-stone-500 uppercase block mb-2">Plaintext Message</label><input value={input} onChange={(e) => setInput(e.target.value)} className="w-full bg-stone-900 border border-stone-600 rounded p-3 text-white font-mono tracking-wider uppercase" /></div>
-                        <div><label className="text-xs font-bold text-stone-500 uppercase block mb-2">Shift Key (Rotation): <span className="text-orange-400">{shift}</span></label><input type="range" min="1" max="25" value={shift} onChange={(e) => setShift(parseInt(e.target.value))} className="w-full accent-orange-500" /></div>
-                        <div className="bg-stone-800 p-6 rounded border border-stone-700 text-center"><div className="text-xs text-stone-500 uppercase mb-2">Encrypted Output</div><div className="text-2xl font-mono font-bold text-emerald-400 break-all">{encrypt(input, shift)}</div></div>
-                    </div>
+                    <h2 className="text-xl font-bold text-white mb-6">Caesar Cipher</h2>
+                    <input value={input} onChange={e => setInput(e.target.value)} className="bg-stone-900 border border-stone-600 rounded p-2 text-white mb-4" />
+                    <input type="range" min="1" max="25" value={shift} onChange={e => setShift(parseInt(e.target.value))} className="w-full accent-orange-500 mb-4" />
+                    <div className="text-2xl font-mono text-emerald-400">{encrypt(input, shift)}</div>
                 </div>
             );
         };
@@ -363,12 +315,12 @@
             const [sim, setSim] = useState('battery');
             return (
                 <div className="h-full flex flex-col">
-                    <div className="flex gap-2 bg-stone-900/50 p-2 rounded mb-4 overflow-x-auto">
-                        <button onClick={() => setSim('battery')} className={`flex items-center gap-2 px-4 py-2 rounded text-xs font-bold whitespace-nowrap ${sim === 'battery' ? 'bg-stone-700 text-white shadow' : 'text-stone-400 hover:text-white'}`}><LucideIcon name="Beaker" size={14} /> Battery Lab</button>
-                        <button onClick={() => setSim('network')} className={`flex items-center gap-2 px-4 py-2 rounded text-xs font-bold whitespace-nowrap ${sim === 'network' ? 'bg-stone-700 text-white shadow' : 'text-stone-400 hover:text-white'}`}><LucideIcon name="Activity" size={14} /> Packet Hunter</button>
-                        <button onClick={() => setSim('crypto')} className={`flex items-center gap-2 px-4 py-2 rounded text-xs font-bold whitespace-nowrap ${sim === 'crypto' ? 'bg-stone-700 text-white shadow' : 'text-stone-400 hover:text-white'}`}><LucideIcon name="Lock" size={14} /> Crypto Decoder</button>
+                    <div className="flex gap-2 bg-stone-900/50 p-2 rounded mb-4">
+                        <button onClick={() => setSim('battery')} className="text-xs text-white px-3 py-1 bg-stone-700 rounded">Battery</button>
+                        <button onClick={() => setSim('network')} className="text-xs text-white px-3 py-1 bg-stone-700 rounded">Network</button>
+                        <button onClick={() => setSim('crypto')} className="text-xs text-white px-3 py-1 bg-stone-700 rounded">Crypto</button>
                     </div>
-                    <div className="flex-1 bg-stone-800 rounded border border-stone-700 relative overflow-hidden">
+                    <div className="flex-1 bg-stone-800 rounded border border-stone-700 overflow-hidden">
                         {sim === 'battery' && <BatterySim />}
                         {sim === 'network' && <PacketSim />}
                         {sim === 'crypto' && <CryptoSim />}
@@ -377,1183 +329,186 @@
             )
         };
 
-        // --- DATA ---
-        const PHASES = [
-            {
-                id: 1, title: "Phase 1: Foundation", duration: "Weeks 1-2",
-                weekRange: [1, 2],
-                intel: "We are transitioning to Solar. Map the network and understand battery chemistry.",
-                tasks: [
-                    { id: "p1_t1", text: "History: Compare 'Era of Coal' vs 'Era of Sun'", role: "Historian", worksheetId: "history_tchart", description: "Research the economic and environmental impact of the Navajo Generating Station versus the new Kayenta Solar Facility." },
-                    { id: "p1_t2", text: "Cyber: Map IoT Ecosystem & Vulnerabilities", role: "Analyst", worksheetId: "cyber_map", description: "Draw a diagram connecting the Solar Panel -> Inverter -> Smart Meter -> Wi-Fi -> Cloud. Circle the 'Attack Surface'." },
-                    { id: "p1_t3", text: "Chem: Galvanic Cell Challenge", role: "Scientist", worksheetId: "chem_lab", description: "Build a battery using lemons or saltwater. Measure the voltage produced by a single cell vs. three cells in series." },
-                    { id: "p1_t4", text: "Math: Calculate Home kWh Usage", role: "Scientist", description: "Calculate the total Kilowatt-hours a standard Navajo home uses in a day to determine how many solar panels are needed." }
-                ]
-            },
-            {
-                id: 2, title: "Phase 2: The Attack", duration: "Weeks 3-4",
-                weekRange: [3, 4],
-                intel: "ALERT: Man-in-the-Middle attack confirmed. Spoofed battery signals detected.",
-                tasks: [
-                    { id: "p2_t1", text: "Cyber: Sniff the Wire (Find Bad Packets)", role: "Analyst", description: "Use the Packet Sniffer to find the anomalous data packet where the reported battery level does not match the actual voltage." },
-                    { id: "p2_t2", text: "Chem: Thermal Runaway Sim", role: "Scientist", description: "Simulate a battery overcharge using resistors and measure the rapid heat increase (Thermal Runaway) caused by the hack." },
-                    { id: "p2_t3", text: "Math: Blackout Calculus (P=IV)", role: "Scientist", worksheetId: "math_calc", description: "Use the Power equation (P=IV) to prove mathematically that the hacker's fake load data will cause the transformer to overload." },
-                    { id: "p2_t4", text: "ELA: Write Incident Report", role: "Communicator", worksheetId: "ela_report", description: "Draft a formal, objective report detailing the 'Who, What, Where, When' of the cyber attack for the NTUA Director." }
-                ]
-            },
-            {
-                id: 3, title: "Phase 3: Defense", duration: "Weeks 5-6",
-                weekRange: [5, 6],
-                intel: "Harden the network. Encrypt traffic and propose safer batteries.",
-                tasks: [
-                    { id: "p3_t1", text: "Cyber: Defense in Depth (HTTPS/Firewall)", role: "Analyst", description: "Re-configure the network to use HTTPS encryption and write a Firewall Rule to block foreign IP addresses." },
-                    { id: "p3_t2", text: "ELA: Grant Proposal Writing", role: "Communicator", description: "Write a persuasive proposal to the Dept of Energy requesting $500k for security upgrades, citing evidence from your Math/Chem findings." },
-                    { id: "p3_t3", text: "History: Data Sovereignty Timeline", role: "Historian", description: "Create a timeline showing the evolution of Navajo Sovereignty: From Land Rights -> Water Rights -> Energy Rights -> Data Sovereignty." },
-                    { id: "p3_t4", text: "Chem: Vanadium Recommendation", role: "Scientist", description: "Research Vanadium Redox Flow batteries and write a recommendation explaining why they are safer than Lithium-Ion for the desert heat." }
-                ]
-            },
-            {
-                id: 4, title: "Phase 4: Expo", duration: "Weeks 7-8",
-                weekRange: [7, 8],
-                intel: "Operation K'é. Present your SOC to the elders.",
-                tasks: [
-                    { id: "p4_t1", text: "Build: Assemble SOC Booth", role: "All", description: "Construct the Tri-Fold board and set up the interactive demos (Battery Tester, Laptop Packet Sniffer) for the Expo." },
-                    { id: "p4_t2", text: "ELA: Elevator Pitch Practice", role: "Communicator", description: "Write and memorize a 2-minute speech explaining the project to community elders without using confusing jargon." },
-                    { id: "p4_t3", text: "Team: Audience Adaptation Check", role: "All", description: "Rehearse your presentation. Ensure you can explain 'Encryption' using a culturally relevant metaphor (e.g., Code Talkers)." },
-                    { id: "p4_t4", text: "Demo: Final System Test", role: "Scientist", description: "Perform a final dry-run of the live battery voltage demo to ensure safety and accuracy before the judges arrive." }
-                ]
-            }
-        ];
-
-        const LESSON_PLANS = {
-            1: {
-                title: "Phase 1: Foundation (Weeks 1-2)",
-                subjects: [
-                    {
-                        subject: "History / Social Studies",
-                        topic: "The Era of Coal vs. Sun",
-                        alignment: "NM-H.9-12.2: Analyze the impact of the energy industry on New Mexico's economy.",
-                        days: [
-                            { 
-                                day: "Day 1", 
-                                title: "Project Kickoff", 
-                                detail: "Discuss the closure of NGS (Navajo Generating Station) and its economic impact.",
-                                materials: ["Projector for NGS documentary clips"],
-                                activity: "Class discussion on economic shifts.",
-                                presentation: {
-                                    title: "The Fall of Coal & Rise of Solar",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can explain the economic shift from Coal to Solar.", "I can identify the key players in the Navajo energy sector."] },
-                                        { title: "Daily Agenda", content: ["1. Warm-up: Energy Source Poll", "2. Lecture: The NGS Story", "3. Discussion: What comes next?"] },
-                                        { title: "Navajo Generating Station (NGS)", content: ["Located near Page, AZ", "2250 MW Capacity (Powered Las Vegas & Phoenix)", "Closed in 2019 due to market forces"], image: "https://placehold.co/800x450/334155/FFFFFF?text=Navajo+Generating+Station+Smokestacks" },
-                                        { title: "Economic Impact", content: ["Lost ~$40M/year in revenue for Navajo Nation", "Hundreds of high-paying jobs lost", "Shift to Kayenta Solar Project (Tribally owned)"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Open Student Portal", "2. Discuss: How does the closure of NGS affect your family?", "3. No worksheet today - just discussion."] }
-                                    ]
-                                }
-                            },
-                            { 
-                                day: "Day 2", 
-                                title: "Comparative Analysis", 
-                                detail: "Complete 'History T-Chart' contrasting jobs, revenue, and environment of Coal vs. Solar.",
-                                materials: ["Tablets/Laptops"],
-                                activity: "Students fill out the 'History T-Chart' worksheet in the Student Portal.",
-                                worksheetId: "history_tchart",
-                                presentation: {
-                                    title: "Coal vs. Solar: A Comparison",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can compare and contrast the benefits of Coal vs Solar energy.", "I can analyze data to support an argument."] },
-                                        { title: "Daily Agenda", content: ["1. Review: NGS Closure", "2. Activity: The T-Chart", "3. Share-out: Key Findings"] },
-                                        { title: "The Old Economy: Coal", content: ["Pros: Consistent baseload power, High jobs", "Cons: Pollution, Water usage, Finite resource"] },
-                                        { title: "The New Economy: Solar", content: ["Pros: Renewable, No emissions, Low maintenance", "Cons: Intermittent (Needs batteries), Fewer permanent jobs"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Open Student Portal -> Mission Tab", "2. Launch 'History T-Chart'", "3. Fill in the columns with your group."] }
-                                    ]
-                                }
-                            },
-                            { 
-                                day: "Day 3", 
-                                title: "Sovereignty Intro", 
-                                detail: "Discuss what Energy Sovereignty means for the Navajo Nation.",
-                                materials: ["Whiteboard markers"],
-                                activity: "Group brainstorming on Sovereignty definitions.",
-                                presentation: {
-                                    title: "What is Energy Sovereignty?",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can define 'Energy Sovereignty'.", "I can explain why owning infrastructure matters."] },
-                                        { title: "Daily Agenda", content: ["1. Vocabulary: Sovereignty", "2. Case Study: Kayenta Solar", "3. Discussion"] },
-                                        { title: "Defining Sovereignty", content: ["The right to govern oneself", "Control over land, water, and air", "Data Sovereignty: Owning our own information"] },
-                                        { title: "Energy Independence", content: ["Generating our own power", "Not relying on outside companies (SRP, APS)", "Keeping revenue within the Nation"] },
-                                        { title: "The Future: Microgrids", content: ["Small, local grids that can disconnect from the main grid", "Resilient against regional blackouts"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Brainstorm: What would a sovereign energy grid look like?", "2. Prepare for Cyber module tomorrow."] }
-                                    ]
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        subject: "Cybersecurity",
-                        topic: "IoT & Attack Surfaces",
-                        alignment: "CSTA 3A-NI-04: Evaluate the scalability and reliability of networks.",
-                        days: [
-                            { 
-                                day: "Day 4", 
-                                title: "Network Basics", 
-                                detail: "Lecture: How solar inverters communicate with the cloud via Wi-Fi.",
-                                materials: ["Projector"],
-                                activity: "Lecture and diagramming basics.",
-                                presentation: {
-                                    title: "IoT & The Attack Surface",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can map the flow of data in a solar energy system.", "I can identify potential vulnerabilities in a network."] },
-                                        { title: "Daily Agenda", content: ["1. Tech Talk: IoT", "2. Diagramming: The Solar Network", "3. Risk Assessment"] },
-                                        { title: "What is IoT?", content: ["Internet of Things", "Smart Meters, Inverters, Thermostats", "Real World: Mirai Botnet infected 300k+ IoT devices"], image: "https://placehold.co/800x450/334155/FFFFFF?text=IoT+Network+Diagram" },
-                                        { title: "The Solar Network", content: ["Solar Panel -> DC Power", "Inverter -> AC Power + Wi-Fi Data", "Gateway -> Cloud Server -> App"] },
-                                        { title: "Vulnerabilities", content: ["Default passwords (admin/admin)", "Unencrypted traffic (HTTP vs HTTPS)", "Physical access to the meter"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Review the diagrams", "2. Think like a hacker: Where is the weak point?", "3. Prepare for Threat Modeling."] }
-                                    ]
-                                }
-                            },
-                            { 
-                                day: "Day 5", 
-                                title: "Threat Modeling", 
-                                detail: "Activity: 'Cyber Map' worksheet. Identify entry points (inverters, smart meters).",
-                                materials: ["Tablets"],
-                                activity: "Students draw a network map and identify attack vectors in the Student Portal.",
-                                worksheetId: "cyber_map",
-                                presentation: {
-                                    title: "Mapping the Threat",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can identify specific 'Attack Surfaces' in our grid.", "I can explain the risk of unencrypted data."] },
-                                        { title: "Daily Agenda", content: ["1. Review: Network Flow", "2. Activity: Cyber Map", "3. Discussion: Mitigation"] },
-                                        { title: "Attack Surface", content: ["The sum of all points where an unauthorized user can enter data", "Inverters: Often have default passwords", "Wi-Fi: Can be intercepted"] },
-                                        { title: "Real World: Ukraine 2015", content: ["Hackers compromised the SCADA system", "Turned off power for 230k people remotely"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Open Student Portal -> 'Cyber Map'", "2. Draw the path from Panel to Cloud", "3. Circle the weak points."] }
-                                    ]
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        subject: "Chemistry",
-                        topic: "Battery Chemistry",
-                        alignment: "HS-PS1-7: Use mathematical representations to support the claim that atoms, and therefore mass, are conserved.",
-                        days: [
-                            { 
-                                day: "Day 6", 
-                                title: "Galvanic Cells", 
-                                detail: "Lab: Build a lemon/saltwater battery. Measure voltage.",
-                                materials: ["Lemons", "Zinc nails", "Copper pennies", "Alligator clips", "Multimeters"],
-                                activity: "Physical lab: Building batteries and logging voltage in the Student Portal.",
-                                worksheetId: "chem_lab",
-                                presentation: {
-                                    title: "The Galvanic Cell",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can build a working galvanic cell.", "I can measure voltage and explain electron flow."] },
-                                        { title: "Daily Agenda", content: ["1. Safety Brief", "2. Lab: Lemon Batteries", "3. Data Logging"] },
-                                        { title: "Anatomy of a Battery", content: ["Anode (Negative): Zinc (Nail) - Loses Electrons", "Cathode (Positive): Copper (Penny) - Gains Electrons", "Electrolyte: Citric Acid (Lemon) - Allows ion flow"], image: "https://placehold.co/800x450/334155/FFFFFF?text=Galvanic+Cell+Diagram" },
-                                        { title: "Redox Reactions", content: ["Reduction: Gaining electrons", "Oxidation: Losing electrons", "Electron flow = Electricity"] },
-                                        { title: "History: The Baghdad Battery", content: ["Ancient artifact (~200 BC)", "Clay pot, copper cylinder, iron rod", "Was it a battery?"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Build your lemon battery", "2. Use multimeter to find voltage", "3. Open 'Chem Lab' doc and log your data."] }
-                                    ]
-                                }
-                            },
-                            { 
-                                day: "Day 7", 
-                                title: "Series vs Parallel", 
-                                detail: "Experiment: Connect cells in series to increase voltage. Relate to Li-Ion packs.",
-                                materials: ["Battery kits", "LEDs"],
-                                activity: "Experiments with series circuits.",
-                                presentation: {
-                                    title: "Scaling Up Power",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can calculate total voltage in a series circuit.", "I can explain how Li-Ion packs are built."] },
-                                        { title: "Daily Agenda", content: ["1. Review: Voltage", "2. Lab: Series Circuits", "3. Application: EV Batteries"] },
-                                        { title: "Series Circuits", content: ["Connecting Positive to Negative", "Voltage Adds Up (1.5V + 1.5V = 3.0V)", "Current stays the same"] },
-                                        { title: "Real World: Tesla Model S", content: ["Uses ~7,000 small cells (18650s)", "Wired in Series/Parallel blocks", "Total pack ~400 Volts"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Connect 3 lemon cells in series", "2. Measure new voltage", "3. Try to light the LED."] }
-                                    ]
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        subject: "Math",
-                        topic: "Energy Quantities",
-                        alignment: "HSN.Q.A.1: Use units as a way to understand problems.",
-                        days: [
-                            { 
-                                day: "Day 8", 
-                                title: "Home Energy Audit", 
-                                detail: "Calculate daily kWh usage for a standard home.",
-                                materials: ["Sample Utility Bill (PDF)", "Tablets"],
-                                activity: "Calculation exercise.",
-                                presentation: {
-                                    title: "Kilowatts & You",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can calculate daily energy usage (kWh).", "I can read a utility bill."] },
-                                        { title: "Daily Agenda", content: ["1. Concept: Power vs Energy", "2. Activity: Audit", "3. Discussion"] },
-                                        { title: "Power vs Energy", content: ["kW = Rate (Speedometer)", "kWh = Quantity (Odometer)", "1 kW running for 1 hour = 1 kWh"] },
-                                        { title: "Real World Data", content: ["Avg US Home: ~30 kWh / day", "Navajo Nation Home (Off-grid): ~5-10 kWh / day"] },
-                                        { title: "The Solar Equation", content: ["Daily Usage / Sun Hours = Panel Capacity Needed", "Example: 10 kWh / 5 Sun Hours = 2 kW Array"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Open Student Portal", "2. Select 'Math: Calculate Home kWh'", "3. Sum up the wattage of all appliances."] }
-                                    ]
-                                }
-                            },
-                            { 
-                                day: "Day 9", 
-                                title: "Solar Sizing", 
-                                detail: "Determine how many panels are needed to offset the calculated usage.",
-                                materials: ["Tablets"],
-                                activity: "Calculation exercise.",
-                                presentation: {
-                                    title: "Sizing the Array",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can determine the number of solar panels needed for a home.", "I can interpret solar irradiance maps."] },
-                                        { title: "Daily Agenda", content: ["1. Review: kWh", "2. Concept: Sun Hours", "3. Calculation: Array Size"] },
-                                        { title: "The Solar Equation", content: ["Daily Usage / Sun Hours = Panel Capacity Needed", "Example: 10 kWh / 5 Sun Hours = 2 kW Array"], image: "https://placehold.co/800x450/334155/FFFFFF?text=Solar+Irradiance+Map" },
-                                        { title: "Peak Sun Hours", content: ["Not just daylight hours", "Arizona: ~5.5 - 6.0 Peak Hours/Day", "Germany: ~3.0 Peak Hours/Day"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Take your Daily kWh from yesterday", "2. Divide by 5.5 (AZ Sun Hours)", "3. Determine how many 300W panels you need."] }
-                                    ]
-                                }
-                            }
-                        ]
-                    }
-                ]
-            },
-            2: {
-                title: "Phase 2: The Attack (Weeks 3-4)",
-                subjects: [
-                    {
-                        subject: "Math",
-                        topic: "Power Law (P=IV)",
-                        alignment: "HSA.CED.A.4: Rearrange formulas to highlight a quantity of interest.",
-                        days: [
-                            { 
-                                day: "Day 5", 
-                                title: "Grid Load Calc", 
-                                detail: "Worksheet: 'Blackout Calculus'. Calculate the total load if the hacker adds phantom demand.",
-                                materials: ["Tablets", "'Blackout Calculus' Tool"],
-                                activity: "Using the P=IV calculator in the Student Portal to simulate grid overload.",
-                                worksheetId: "math_calc",
-                                presentation: {
-                                    title: "The Blackout Formula",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can use the Power Equation (P=IV) to model grid failure.", "I can explain load balancing."] },
-                                        { title: "Daily Agenda", content: ["1. Review: P=IV", "2. Case Study: Texas 2021", "3. Tool: Blackout Calculus"] },
-                                        { title: "Grid Load Balance", content: ["Supply must equal Demand EXACTLY", "Overload = Heat = Failure", "Example: Texas Winter Storm 2021 (Load Shedding)"], image: "https://placehold.co/800x450/334155/FFFFFF?text=Grid+Load+Chart" },
-                                        { title: "The Tipping Point", content: ["Transformer ratings in kVA", "Exceeding rating > 120% causes explosions"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Open 'Blackout Calculus' tool", "2. Add 'Phantom Load' to the grid", "3. Determine at what point the system fails."] }
-                                    ]
-                                }
-                            },
-                            { 
-                                day: "Day 6", 
-                                title: "Failure Point", 
-                                detail: "Determine the amperage at which the substation transformer fails.",
-                                materials: ["Tablets"],
-                                activity: "Advanced calculation.",
-                                presentation: {
-                                    title: "Calculating Failure",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can solve for Amperage given Power and Voltage.", "I can predict component failure."] },
-                                        { title: "Daily Agenda", content: ["1. Review: Algebra", "2. Calculation: Failure Point", "3. Discussion"] },
-                                        { title: "Rearranging P=IV", content: ["P = IV", "I = P / V", "If Voltage is constant (240V) and Power goes up, Current (I) MUST go up."] },
-                                        { title: "Why Wires Melt", content: ["Heat is proportional to Current squared (I^2)", "Small increase in current = Huge increase in heat"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Use yesterday's load data", "2. Calculate the Amps flowing through the transformer", "3. Compare to the rated limit."] }
-                                    ]
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        subject: "ELA",
-                        topic: "Technical Writing",
-                        alignment: "WHST.11-12.2: Write informative/explanatory texts.",
-                        days: [
-                            { 
-                                day: "Day 7", 
-                                title: "Incident Reporting", 
-                                detail: "Draft the 'Incident Report'. Focus on objective, chronological storytelling.",
-                                materials: ["Tablets", "Incident Report Template"],
-                                activity: "Drafting the incident report in the Student Portal.",
-                                worksheetId: "ela_report",
-                                presentation: {
-                                    title: "Writing for Engineers",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can write a technical incident report.", "I can use objective language to describe an event."] },
-                                        { title: "Daily Agenda", content: ["1. Concept: Objectivity", "2. Drafting: The Report", "3. Self-Check"] },
-                                        { title: "Objectivity is Key", content: ["Facts over feelings", "Precision over poetry", "Avoid: 'It was scary'", "Use: 'System temperature rose 40°C in 10s'"] },
-                                        { title: "Structure of a Report", content: ["Abstract (Summary)", "Timeline of Events", "Root Cause Analysis", "Remediation (The Fix)"], image: "https://placehold.co/800x450/334155/FFFFFF?text=Report+Structure+Diagram" },
-                                        { title: "Real World Example", content: ["NTSB Accident Reports", "FDA Recall Notices"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Open 'ELA: Write Incident Report'", "2. Document the cyber attack from the perspective of an engineer."] }
-                                    ]
-                                }
-                            },
-                            { 
-                                day: "Day 8", 
-                                title: "Peer Review", 
-                                detail: "Review reports for clarity and lack of jargon.",
-                                materials: ["Printed drafts"],
-                                activity: "Peer review session.",
-                                presentation: {
-                                    title: "Technical Review",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can critique technical writing for clarity and accuracy.", "I can give constructive feedback."] },
-                                        { title: "Daily Agenda", content: ["1. Protocol: Feedback Sandwich", "2. Peer Review", "3. Revision"] },
-                                        { title: "What to look for", content: ["Is the timeline clear?", "Are the units correct (kW vs kWh)?", "Is the tone professional?"] },
-                                        { title: "Real World: NTSB", content: ["National Transportation Safety Board", "Reports determine legal liability and future safety rules"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Swap reports with a partner", "2. Highlight vague language", "3. Verify their math."] }
-                                    ]
-                                }
-                            }
-                        ]
-                    },
-                     {
-                        subject: "Cybersecurity",
-                        topic: "Packet Sniffing & MITM",
-                        alignment: "CSTA 3A-NI-05: Give examples to illustrate how sensitive data can be affected by malware and other attacks.",
-                        days: [
-                            { 
-                                day: "Day 1", 
-                                title: "The Handshake", 
-                                detail: "Simulate a Wi-Fi handshake. Explain Man-in-the-Middle attacks.",
-                                materials: ["Laptops", "Wi-Fi simulation tool"],
-                                activity: "Simulation.",
-                                presentation: {
-                                    title: "Packet Sniffing",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can explain how data travels in packets.", "I can describe a Man-in-the-Middle attack."] },
-                                        { title: "Daily Agenda", content: ["1. Concept: TCP/IP", "2. Simulation: The Handshake", "3. Attack Vector"] },
-                                        { title: "How Data Travels", content: ["Data is broken into 'Packets'", "Like postcards, anyone handling them can read them if not sealed (encrypted)"] },
-                                        { title: "Man-in-the-Middle (MITM)", content: ["Attacker sits between You and the Router", "Example: 'Free Coffee Shop Wi-Fi' attacks"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Log into the simulator", "2. Attempt to intercept the 'Handshake'", "3. Identify the target IP."] }
-                                    ]
-                                }
-                            },
-                            { 
-                                day: "Day 2", 
-                                title: "Packet Inspection", 
-                                detail: "Activity: 'Sniff the Wire'. Find the data packet with the spoofed voltage reading.",
-                                materials: ["Laptops"],
-                                activity: "Packet analysis exercise.",
-                                presentation: {
-                                    title: "Deep Packet Inspection",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can analyze packet data to find anomalies.", "I can identify spoofed information."] },
-                                        { title: "Daily Agenda", content: ["1. Tool: Wireshark", "2. Activity: The Hunt", "3. Analysis"] },
-                                        { title: "Reading Hex", content: ["Computers speak in Hexadecimal", "We look for patterns in the noise"], image: "https://placehold.co/800x450/334155/FFFFFF?text=Wireshark+Interface" },
-                                        { title: "The Anomalous Packet", content: ["Normal: Battery Voltage = 12.4V", "Spoofed: Battery Voltage = 14.8V (Overcharged!)"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Open Student Portal", "2. Use the 'Sniffer' tool", "3. Find the packet where the reported voltage doesn't match reality."] }
-                                    ]
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        subject: "Chemistry",
-                        topic: "Thermal Runaway",
-                        alignment: "HS-PS3-3: Design, build, and refine a device that works within given constraints to convert one form of energy into another.",
-                        days: [
-                            { 
-                                day: "Day 3", 
-                                title: "Heat Generation", 
-                                detail: "Lab: Run high current through a resistor to simulate battery overcharge.",
-                                materials: ["9V Battery", "Steel wool", "Thermometer", "Fire safety gear"],
-                                activity: "Thermal runaway demo.",
-                                presentation: {
-                                    title: "Thermal Runaway",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can observe the physical effects of battery overcharge.", "I can explain exothermic reactions."] },
-                                        { title: "Daily Agenda", content: ["1. Safety Check", "2. Demo: Steel Wool", "3. Theory: Dendrites"] },
-                                        { title: "Exothermic Reactions", content: ["Chemical reactions that release heat", "Self-sustaining feedback loops"], image: "https://placehold.co/800x450/334155/FFFFFF?text=Thermal+Runaway+Infographic" },
-                                        { title: "Real World Failures", content: ["Samsung Galaxy Note 7 (2016)", "Boeing 787 Dreamliner Batteries"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Observe the Steel Wool demo", "2. Record temperature changes", "3. Discuss: How did the cyber attack cause this physical reaction?"] }
-                                    ]
-                                }
-                            },
-                            { 
-                                day: "Day 4", 
-                                title: "Safety Systems", 
-                                detail: "Discuss cooling systems and physical firewalls in battery packs.",
-                                materials: ["Projector"],
-                                activity: "Discussion.",
-                                presentation: {
-                                    title: "Engineering Safety",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can design safety systems for high-energy batteries.", "I can explain the role of a BMS."] },
-                                        { title: "Daily Agenda", content: ["1. Review: Runaway", "2. Concept: BMS", "3. Design Challenge"] },
-                                        { title: "Battery Management System (BMS)", content: ["The brain of the battery", "Monitors voltage and temp", "Disconnects if unsafe"] },
-                                        { title: "Physical Firewalls", content: ["Separating cells to prevent chain reactions", "Liquid cooling channels"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Sketch a safe battery pack", "2. Where do the sensors go?", "3. How do you cool the cells?"] }
-                                    ]
-                                }
-                            }
-                        ]
-                    }
-                ]
-            },
-            3: {
-                title: "Phase 3: Defense (Weeks 5-6)",
-                subjects: [
-                     {
-                        subject: "Cybersecurity",
-                        topic: "Encryption & Hardening",
-                        alignment: "CSTA 3A-NI-06: Recommend security measures to address various scenarios.",
-                        days: [
-                            { 
-                                day: "Day 1", 
-                                title: "Encryption 101", 
-                                detail: "Demonstrate Caesar Ciphers vs Modern AES. Discuss Code Talkers as early encryption.",
-                                materials: ["Cipher wheels", "Whiteboard"],
-                                activity: "Manual encryption exercises.",
-                                presentation: {
-                                    title: "Encryption Defense",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can encrypt and decrypt a message.", "I can explain the importance of keys."] },
-                                        { title: "Daily Agenda", content: ["1. History: Enigma", "2. Activity: Ciphers", "3. Modern Crypto"] },
-                                        { title: "Plaintext vs Ciphertext", content: ["Readable vs Scrambled", "The 'Key' unlocks the data"], image: "https://placehold.co/800x450/334155/FFFFFF?text=Encryption+Diagram" },
-                                        { title: "The Navajo Code Talkers", content: ["Unbreakable code based on language", "Security through complexity vs obscurity"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Use the cipher wheel", "2. Encrypt a message for your partner", "3. Try to break their code."] }
-                                    ]
-                                }
-                            },
-                            { 
-                                day: "Day 2", 
-                                title: "Firewall Rules", 
-                                detail: "Activity: Write pseudo-code rules to block IP addresses outside the network.",
-                                materials: ["Whiteboard"],
-                                activity: "Logic design.",
-                                presentation: {
-                                    title: "Building the Wall",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can write logic rules for a firewall.", "I can explain 'Defense in Depth'."] },
-                                        { title: "Daily Agenda", content: ["1. Concept: Firewalls", "2. Activity: Rule Writing", "3. Implementation"] },
-                                        { title: "Allow vs Deny", content: ["Whitelist (Allow only known good)", "Blacklist (Block known bad)"] },
-                                        { title: "Real World: The Great Firewall", content: ["National level internet filtering", "Corporate VPNs"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Open Student Portal", "2. Write a rule to BLOCK all traffic NOT from the Navajo Nation IP range."] }
-                                    ]
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        subject: "History",
-                        topic: "Data Sovereignty",
-                        alignment: "NM-AD.9-12.3: Analyze the relationship between land resources and tribal sovereignty.",
-                        days: [
-                            { 
-                                day: "Day 3", 
-                                title: "Rights Timeline", 
-                                detail: "Create timeline: Land Rights -> Water Rights -> Digital/Data Rights.",
-                                materials: ["Timeline software", "Historical archives"],
-                                activity: "Research and timeline creation.",
-                                presentation: {
-                                    title: "Digital Sovereignty",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can trace the evolution of tribal sovereignty.", "I can define 'Data Sovereignty'."] },
-                                        { title: "Daily Agenda", content: ["1. History: Treaties", "2. Concept: IDS", "3. Activity: Timeline"] },
-                                        { title: "Evolution of Rights", content: ["Land Rights (Treaty of 1868)", "Water Rights (Winters Doctrine)", "Digital Rights (Today)"] },
-                                        { title: "Data Colonization", content: ["Researchers taking data without consent", "Who owns the story?"] },
-                                        { title: "CARE Principles", content: ["Collective Benefit", "Authority to Control", "Responsibility", "Ethics"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Open Student Portal", "2. Complete 'Data Sovereignty Timeline' task", "3. Link historical treaties to modern digital rights."] }
-                                    ]
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        subject: "Chemistry",
-                        topic: "Alternative Storage",
-                        alignment: "HS-ETS1-2: Design a solution to a complex real-world problem.",
-                        days: [
-                            { 
-                                day: "Day 4", 
-                                title: "Vanadium Flow", 
-                                detail: "Research Vanadium Redox batteries. Why are they safer for the desert?",
-                                materials: ["Research articles"],
-                                activity: "Reading and research.",
-                                presentation: {
-                                    title: "Flow Batteries",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can compare Flow Batteries to Li-Ion.", "I can explain why geography affects battery choice."] },
-                                        { title: "Daily Agenda", content: ["1. Problem: Heat", "2. Solution: Vanadium", "3. Research"] },
-                                        { title: "Lithium Limits", content: ["Heat sensitivity", "Degradation over time", "Fire risk (Thermal Runaway)"] },
-                                        { title: "Vanadium Redox (VRFB)", content: ["Liquid electrolyte tanks", "Non-flammable (Water based)", "Unlimited cycles"], image: "https://placehold.co/800x450/334155/FFFFFF?text=Flow+Battery+Schematic" },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Research Vanadium properties", "2. Draft recommendation: Why switch from Li-Ion to VRFB?"] }
-                                    ]
-                                }
-                            },
-                            { 
-                                day: "Day 5", 
-                                title: "Recommendation", 
-                                detail: "Write a technical recommendation for switching battery chemistry.",
-                                materials: ["Tablets"],
-                                activity: "Writing technical recommendation.",
-                                presentation: {
-                                    title: "The Engineering Recommendation",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can write a persuasive technical argument.", "I can use data to support a design choice."] },
-                                        { title: "Daily Agenda", content: ["1. Format: Tech Memo", "2. Drafting", "3. Review"] },
-                                        { title: "Argument Structure", content: ["Current State (Li-Ion Risk)", "Proposed State (VRFB Safety)", "Cost/Benefit Analysis"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Open Student Portal", "2. Write your formal recommendation to the Tribal Utility Authority."] }
-                                    ]
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        subject: "ELA",
-                        topic: "Grant Writing",
-                        alignment: "WHST.11-12.1: Write arguments to support claims.",
-                        days: [
-                            { 
-                                day: "Day 6", 
-                                title: "Proposal Draft", 
-                                detail: "Draft the Grant Proposal for DOE funding. Use evidence from Math/Chem modules.",
-                                materials: ["Sample Grant Proposals", "Tablets"],
-                                activity: "Drafting grant proposal.",
-                                presentation: {
-                                    title: "The Grant Proposal",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can draft a funding proposal.", "I can synthesize technical data into a narrative."] },
-                                        { title: "Daily Agenda", content: ["1. Analysis: Sample Grants", "2. Drafting", "3. Budgeting"] },
-                                        { title: "The Problem Statement", content: ["Hook the reader", "Define the urgency (The Attack)"] },
-                                        { title: "DOE Office of Indian Energy", content: ["Real funding source", "Supports tribal energy independence"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Open 'ELA: Grant Proposal'", "2. Synthesize your findings from Chem/Cyber", "3. Write the executive summary."] }
-                                    ]
-                                }
-                            }
-                        ]
-                    }
-                ]
-            },
-            4: {
-                title: "Phase 4: Expo (Weeks 7-8)",
-                subjects: [
-                    {
-                        subject: "Engineering / All",
-                        topic: "System Integration",
-                        alignment: "HS-ETS1-3: Evaluate a solution to a complex real-world problem.",
-                        days: [
-                            { 
-                                day: "Day 1", 
-                                title: "Booth Build", 
-                                detail: "Construct the Tri-Fold board. Assemble the physical demo unit.",
-                                materials: ["Tri-fold boards", "Construction paper", "Glue/Scissors", "Demo laptops"],
-                                activity: "Physical construction.",
-                                presentation: {
-                                    title: "System Integration",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can organize information visually.", "I can assemble a physical demonstration."] },
-                                        { title: "Daily Agenda", content: ["1. Layout Design", "2. Build Time", "3. Safety Check"] },
-                                        { title: "The Booth Layout", content: ["Flow of information (Left to Right)", "Interactive elements", "Visual hierarchy"], image: "https://placehold.co/800x450/334155/FFFFFF?text=Booth+Layout+Example" },
-                                        { title: "Real World: CES", content: ["Consumer Electronics Show", "How companies sell complex tech in 3 seconds"] },
-                                        { title: "The Live Demo", content: ["Rehearsing the script", "Contingency plans for failure (Murphy's Law)"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Assign roles (Builder, Designer, Speaker)", "2. Assemble the Tri-Fold", "3. Set up the laptop demo."] }
-                                    ]
-                                }
-                            },
-                            { 
-                                day: "Day 2", 
-                                title: "Integration Test", 
-                                detail: "Run the full attack/defense simulation live.",
-                                materials: ["Full system setup"],
-                                activity: "System testing.",
-                                presentation: {
-                                    title: "The Dress Rehearsal",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can demonstrate the full attack/defense cycle.", "I can troubleshoot live technical issues."] },
-                                        { title: "Daily Agenda", content: ["1. System Check", "2. Full Run-Through", "3. Debrief"] },
-                                        { title: "Murphy's Law", content: ["Anything that can go wrong, will go wrong.", "Have a backup plan."] },
-                                        { title: "The Script", content: ["Attack -> Detection -> Failure -> Defense -> Success"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Run the simulation from start to finish", "2. Time it", "3. Fix any bugs."] }
-                                    ]
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        subject: "ELA / Communication",
-                        topic: "Public Speaking",
-                        alignment: "SL.11-12.4: Present information, findings, and supporting evidence.",
-                        days: [
-                            { 
-                                day: "Day 3", 
-                                title: "Elevator Pitch", 
-                                detail: "Draft and memorize the 2-minute project pitch.",
-                                materials: ["Cue cards", "Timer"],
-                                activity: "Drafting and practice.",
-                                presentation: {
-                                    title: "The Pitch",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can deliver a concise summary of my project.", "I can speak confidently to an audience."] },
-                                        { title: "Daily Agenda", content: ["1. Concept: The Elevator Pitch", "2. Drafting", "3. Speed Dating Practice"] },
-                                        { title: "Know Your Audience", content: ["Elders vs Engineers", "Adjusting technical language"], image: "https://placehold.co/800x450/334155/FFFFFF?text=Audience+Awareness" },
-                                        { title: "The Shark Tank Model", content: ["The Hook -> The Problem -> The Solution -> The Ask"] },
-                                        { title: "Call to Action", content: ["What do we want?", "Closing strong"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Write your 2-minute script", "2. Practice with a partner", "3. Time yourself."] }
-                                    ]
-                                }
-                            },
-                            { 
-                                day: "Day 4", 
-                                title: "Audience Adaptation", 
-                                detail: "Practice explaining technical terms to elders/community members.",
-                                materials: ["Peer reviewers"],
-                                activity: "Roleplay exercises.",
-                                presentation: {
-                                    title: "Translating Tech",
-                                    slides: [
-                                        { title: "Today's Mission", content: ["I can explain complex concepts using simple metaphors.", "I can respect cultural context."] },
-                                        { title: "Daily Agenda", content: ["1. Metaphor Workshop", "2. Roleplay: Elder & Engineer", "3. Final Prep"] },
-                                        { title: "Metaphors", content: ["Encryption = Navajo Code Talkers", "Firewall = Sheep Corral", "Battery = Water Tank"] },
-                                        { title: "Classroom Activity: Your Mission", content: ["1. Find a partner", "2. Explain 'Thermal Runaway' without using jargon", "3. Get feedback."] }
-                                    ]
-                                }
-                            }
-                        ]
-                    }
-                ]
-            }
-        };
-
         // --- COMPONENTS ---
         const PresentationModal = ({ presentation, onClose }) => {
             const [currentSlide, setCurrentSlide] = useState(0);
-            
             if (!presentation || !presentation.slides) return null;
             const slides = presentation.slides;
-
             return (
                 <div className="fixed inset-0 bg-black z-[100] flex flex-col text-white">
-                    {/* Header */}
                     <div className="p-4 bg-stone-900 border-b border-stone-700 flex justify-between items-center">
-                        <h2 className="font-bold text-lg text-orange-500">{presentation.title} <span className="text-stone-500 text-sm ml-2">Class Presentation</span></h2>
-                        <button onClick={onClose} className="bg-stone-800 hover:bg-stone-700 p-2 rounded"><LucideIcon name="X" /></button>
+                        <h2 className="font-bold text-lg text-orange-500">{presentation.title}</h2><button onClick={onClose}><LucideIcon name="X" /></button>
                     </div>
-
-                    {/* Slide Content */}
                     <div className="flex-1 flex items-center justify-center p-8 bg-stone-950">
                         <div className="w-full max-w-6xl aspect-video bg-white text-black rounded-lg shadow-2xl p-12 flex flex-col relative overflow-hidden">
-                            {/* Slide Number */}
-                            <div className="absolute top-4 right-6 text-stone-400 font-mono text-sm">{currentSlide + 1} / {slides.length}</div>
-                            
-                            {/* Content Layout */}
-                            <div className="flex-1 flex flex-col justify-center">
-                                <h1 className="text-4xl font-bold mb-8 text-orange-600 border-b-4 border-black pb-4 inline-block">{slides[currentSlide].title}</h1>
-                                
-                                <div className="flex gap-8 items-center h-full">
-                                    <ul className="space-y-6 text-2xl pl-8 flex-1">
-                                        {slides[currentSlide].content.map((point, i) => (
-                                            <li key={i} className="list-disc pl-2 marker:text-orange-500">{point}</li>
-                                        ))}
-                                    </ul>
-                                    {slides[currentSlide].image && (
-                                        <div className="flex-1 h-full max-h-[400px] flex items-center justify-center">
-                                            <img 
-                                                src={slides[currentSlide].image} 
-                                                alt="Slide Visual" 
-                                                className="max-h-full max-w-full object-contain rounded shadow-lg border border-gray-200"
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Footer */}
-                            <div className="absolute bottom-4 left-6 text-stone-400 text-sm font-mono">Project Jóhonaaʼéí // Teacher Deck</div>
+                            <h1 className="text-4xl font-bold mb-8 text-orange-600">{slides[currentSlide].title}</h1>
+                            <ul className="space-y-4 text-2xl pl-8">{slides[currentSlide].content.map((point, i) => <li key={i} className="list-disc pl-2">{point}</li>)}</ul>
+                            {slides[currentSlide].image && <img src={slides[currentSlide].image} className="absolute bottom-4 right-4 w-64 h-auto rounded border" />}
                         </div>
                     </div>
-
-                    {/* Controls */}
-                    <div className="p-6 bg-stone-900 border-t border-stone-700 flex justify-center gap-4">
-                        <button 
-                            disabled={currentSlide === 0}
-                            onClick={() => setCurrentSlide(c => Math.max(0, c - 1))}
-                            className={`flex items-center gap-2 px-6 py-3 rounded font-bold ${currentSlide === 0 ? 'bg-stone-800 text-stone-600' : 'bg-orange-600 hover:bg-orange-500 text-white'}`}
-                        >
-                            <LucideIcon name="ChevronLeft" /> Previous
-                        </button>
-                        <button 
-                            disabled={currentSlide === slides.length - 1}
-                            onClick={() => setCurrentSlide(c => Math.min(slides.length - 1, c + 1))}
-                            className={`flex items-center gap-2 px-6 py-3 rounded font-bold ${currentSlide === slides.length - 1 ? 'bg-stone-800 text-stone-600' : 'bg-orange-600 hover:bg-orange-500 text-white'}`}
-                        >
-                            Next <LucideIcon name="ChevronRight" />
-                        </button>
+                    <div className="p-6 bg-stone-900 flex justify-center gap-4">
+                        <button onClick={() => setCurrentSlide(c => Math.max(0, c - 1))} className="text-white">Prev</button>
+                        <button onClick={() => setCurrentSlide(c => Math.min(slides.length - 1, c + 1))} className="text-white">Next</button>
                     </div>
                 </div>
             );
         };
 
-        const TimelineDisplay = ({ currentWeek, compact = false, orientation = 'vertical' }) => {
+        const TimelineDisplay = React.memo(({ currentWeek, compact = false, orientation = 'vertical' }) => {
             const [expandedItems, setExpandedItems] = useState({});
-
+            
             useEffect(() => {
                 const activePhase = PHASES.find(p => currentWeek >= p.weekRange[0] && currentWeek <= p.weekRange[1]);
-                if (activePhase) {
-                    setExpandedItems({ [activePhase.id]: true });
-                }
+                if (activePhase) setExpandedItems({ [activePhase.id]: true });
             }, [currentWeek]);
 
-            const togglePhase = (id) => {
+            const togglePhase = useCallback((id) => {
                 setExpandedItems(prev => (prev[id] ? {} : { [id]: true }));
-            };
+            }, []);
 
-            // HORIZONTAL MODE (Landing Page)
             if (orientation === 'horizontal') {
                 return (
                     <div className="w-full">
-                        {/* Horizontal Line Container */}
-                        <div className="flex justify-between items-start relative px-2 sm:px-8 pb-4">
-                            {/* Connecting Line */}
-                            <div className="absolute top-2 left-8 right-8 h-0.5 bg-slate-700 z-0 hidden sm:block"></div>
-                            
+                        <div className="flex justify-between items-start relative px-8 pb-4">
+                            <div className="absolute top-2 left-8 right-8 h-0.5 bg-slate-700 z-0"></div>
                             {PHASES.map((phase) => {
                                 const isActive = currentWeek >= phase.weekRange[0] && currentWeek <= phase.weekRange[1];
-                                const isPast = currentWeek > phase.weekRange[1];
-                                const isExpanded = expandedItems[phase.id];
-
                                 return (
                                     <div key={phase.id} className="relative z-10 flex flex-col items-center flex-1">
-                                        {/* Node */}
-                                        <button 
-                                            onClick={() => togglePhase(phase.id)}
-                                            className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full transition-all duration-500 cursor-pointer mb-2
-                                                ${isActive ? 'bg-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.8)] scale-125' : 
-                                                  isPast ? 'bg-emerald-500' : 'bg-slate-600'}
-                                            `}
-                                        ></button>
-                                        
-                                        {/* Label */}
-                                        <div 
-                                            className={`text-center cursor-pointer group transition-colors duration-300
-                                                ${isActive ? 'text-white' : 'text-slate-500 hover:text-slate-300'}
-                                            `}
-                                            onClick={() => togglePhase(phase.id)}
-                                        >
-                                            <div className="text-[10px] font-mono mb-1 hidden sm:block">{phase.duration}</div>
-                                            <div className="font-bold text-xs sm:text-sm leading-tight px-1">{phase.title}</div>
-                                            {isActive && <div className="text-[9px] uppercase font-bold tracking-wider text-sky-400 mt-1">Active</div>}
-                                        </div>
+                                        <button onClick={() => togglePhase(phase.id)} className={`w-4 h-4 rounded-full mb-2 ${isActive ? 'bg-sky-400' : 'bg-slate-600'}`}></button>
+                                        <div className="text-center text-white text-xs">{phase.title}</div>
                                     </div>
                                 );
-                            })}
-                        </div>
-
-                        {/* Expanded Content Area (Full width below) */}
-                        <div className="mt-2 space-y-4 px-4 sm:px-8">
-                            {PHASES.map(phase => {
-                                if (!expandedItems[phase.id]) return null;
-                                return (
-                                    <div key={phase.id} className="border rounded-lg p-4 bg-slate-800/80 border-sky-500/30 shadow-lg animate-in fade-in slide-in-from-top-2">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <h4 className="font-bold text-white">{phase.title}</h4>
-                                            <span className="text-xs text-slate-400">{phase.duration}</span>
-                                        </div>
-                                        <div className="mb-4 text-sm text-slate-300 border-l-2 border-sky-500/50 pl-3 italic">
-                                            <GlossaryText text={phase.intel} />
-                                        </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                            {phase.tasks.map(t => (
-                                                <div key={t.id} className="text-sm text-slate-300 flex items-start gap-2 bg-slate-900/50 p-2 rounded">
-                                                    <LucideIcon name="ChevronRight" size={14} className="mt-0.5 text-slate-500 shrink-0" />
-                                                    <span><GlossaryText text={t.text} /></span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )
                             })}
                         </div>
                     </div>
                 );
             }
 
-            // VERTICAL MODE (Default)
             return (
-                <div className={`relative border-l border-slate-700 ml-3 py-4 ${compact ? 'space-y-6' : 'space-y-12'}`}>
-                    {PHASES.map((phase) => {
-                        const isActive = currentWeek >= phase.weekRange[0] && currentWeek <= phase.weekRange[1];
-                        const isPast = currentWeek > phase.weekRange[1];
-                        const isExpanded = expandedItems[phase.id];
-                        
-                        return (
-                            <div key={phase.id} className={`pl-8 relative transition-all duration-500 ${isActive ? 'opacity-100' : isPast ? 'opacity-80' : 'opacity-60'}`}>
-                                <button 
-                                    onClick={() => togglePhase(phase.id)}
-                                    className={`absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full transition-all duration-500 cursor-pointer z-10 hover:scale-150
-                                        ${isActive ? 'bg-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.8)] scale-125' : 
-                                          isPast ? 'bg-emerald-500' : 'bg-slate-600'}
-                                    `}
-                                ></button>
-                                
-                                <div 
-                                    className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2 cursor-pointer group"
-                                    onClick={() => togglePhase(phase.id)}
-                                >
-                                    <span className={`text-xs font-mono px-2 py-0.5 rounded border w-fit transition-colors duration-300
-                                        ${isActive ? 'bg-sky-500 text-white border-sky-400' : 'bg-slate-800 text-slate-500 border-slate-700 group-hover:border-slate-500'}
-                                    `}>
-                                        {phase.duration}
-                                    </span>
-                                    <h3 className={`font-bold transition-colors flex items-center gap-2 ${isActive ? 'text-white text-lg' : 'text-slate-400 text-base group-hover:text-white'}`}>
-                                        {phase.title}
-                                        <LucideIcon name={isExpanded ? "ChevronUp" : "ChevronDown"} size={14} className="opacity-50" />
-                                    </h3>
-                                    {isActive && <span className="text-[10px] uppercase font-bold tracking-wider text-sky-400 animate-pulse bg-sky-900/30 px-2 rounded">Active Phase</span>}
-                                </div>
-
-                                {!compact && isExpanded && (
-                                    <div className="border rounded-lg p-4 bg-slate-800/80 border-sky-500/30 shadow-lg mt-2">
-                                        <div className="mb-4 text-sm text-slate-300 border-l-2 border-sky-500/50 pl-3 italic">
-                                            <GlossaryText text={phase.intel} />
-                                        </div>
-                                        <div>
-                                            <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Operational Tasks</h4>
-                                            <ul className="space-y-1">
-                                                {phase.tasks.map(t => (
-                                                    <li key={t.id} className="text-sm text-slate-300 flex items-start gap-2">
-                                                        <LucideIcon name="ChevronRight" size={14} className="mt-0.5 text-slate-500 shrink-0" />
-                                                        <span><GlossaryText text={t.text} /></span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
+                <div className="relative border-l border-slate-700 ml-3 py-4 space-y-12">
+                    {PHASES.map(phase => (
+                        <div key={phase.id} className="pl-8 relative">
+                            <button onClick={() => togglePhase(phase.id)} className="absolute -left-[5px] top-0 w-2.5 h-2.5 rounded-full bg-slate-600"></button>
+                            <div className="text-white font-bold cursor-pointer" onClick={() => togglePhase(phase.id)}>{phase.title}</div>
+                            {expandedItems[phase.id] && <div className="mt-2 text-sm text-slate-400"><GlossaryText text={phase.intel} /></div>}
+                        </div>
+                    ))}
                 </div>
             );
-        };
+        });
 
         const WorksheetForm = ({ worksheetId, data, onSave, readOnly = false, onClose }) => {
             const schema = WORKSHEETS[worksheetId];
             const [formData, setFormData] = useState(data || {});
 
-            useEffect(() => {
-                setFormData(data || {});
-            }, [data, worksheetId]);
+            useEffect(() => { setFormData(data || {}); }, [data, worksheetId]);
 
-            const handleChange = (fieldId, value) => {
+            const handleChange = useCallback((fieldId, value) => {
                 if (readOnly) return;
                 setFormData(prev => ({ ...prev, [fieldId]: value }));
-            };
+            }, [readOnly]);
 
-            if (!schema) return <div>Select a worksheet to begin.</div>;
-
-            const renderTChart = () => {
-                const rows = [
-                    { label: "Jobs", coalId: "coal_jobs", solarId: "solar_jobs" },
-                    { label: "Environment", coalId: "coal_env", solarId: "solar_env" },
-                    { label: "Revenue", coalId: "coal_rev", solarId: "solar_rev" },
-                    { label: "Sovereignty", coalId: "coal_sov", solarId: "solar_sov" },
-                ];
-
-                return (
-                    <div className="space-y-6">
-                        <div className="grid grid-cols-2 gap-4 text-center font-bold text-lg mb-2">
-                            <div className="text-orange-400 border-b-2 border-orange-500 pb-2">The Era of Coal</div>
-                            <div className="text-yellow-400 border-b-2 border-yellow-500 pb-2">The Era of Sun</div>
-                        </div>
-                        {rows.map((row, idx) => (
-                            <div key={idx} className="relative">
-                                <div className="text-center mb-1">
-                                    <span className="bg-slate-700 px-2 py-0.5 text-xs text-slate-300 uppercase font-bold tracking-wider rounded">
-                                        {row.label}
-                                    </span>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <textarea 
-                                        className="w-full bg-slate-900 border border-slate-600 rounded p-3 text-white focus:border-orange-500 outline-none min-h-[100px] text-sm"
-                                        value={formData[row.coalId] || ''}
-                                        placeholder="Coal details..."
-                                        onChange={(e) => handleChange(row.coalId, e.target.value)}
-                                        readOnly={readOnly}
-                                    />
-                                    <textarea 
-                                        className="w-full bg-slate-900 border border-slate-600 rounded p-3 text-white focus:border-yellow-500 outline-none min-h-[100px] text-sm"
-                                        value={formData[row.solarId] || ''}
-                                        placeholder="Solar details..."
-                                        onChange={(e) => handleChange(row.solarId, e.target.value)}
-                                        readOnly={readOnly}
-                                    />
-                                </div>
-                            </div>
-                        ))}
-                        <div className="mt-6 border-t border-slate-700 pt-4">
-                            <label className="block text-sm font-bold text-slate-400 mb-2 uppercase">Analysis</label>
-                            <textarea 
-                                className="w-full bg-slate-900 border border-slate-600 rounded p-3 text-white focus:border-sky-500 outline-none min-h-[100px]"
-                                value={formData['analysis'] || ''}
-                                onChange={(e) => handleChange('analysis', e.target.value)}
-                                readOnly={readOnly}
-                            />
-                        </div>
-                    </div>
-                );
-            };
+            if (!schema) return <div>Select a worksheet</div>;
 
             return (
                 <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                        <LucideIcon name="FileText" /> {schema.title}
-                        {readOnly && <span className="text-xs bg-orange-500 text-white px-2 py-1 rounded ml-auto">READ ONLY PREVIEW</span>}
-                    </h3>
-                    
-                    {worksheetId === 'history_tchart' ? renderTChart() : (
-                        <div className="space-y-4">
-                            {schema.fields.map(field => (
-                                <div key={field.id}>
-                                    <label className="block text-xs font-bold text-slate-400 mb-1 uppercase">{field.label}</label>
-                                    {field.type === 'textarea' ? (
-                                        <textarea 
-                                            className="w-full bg-slate-900 border border-slate-600 rounded p-3 text-white focus:border-sky-500 outline-none min-h-[100px]"
-                                            value={formData[field.id] || ''}
-                                            placeholder={field.placeholder || ''}
-                                            onChange={(e) => handleChange(field.id, e.target.value)}
-                                            readOnly={readOnly}
-                                        />
-                                    ) : (
-                                        <input 
-                                            type={field.type}
-                                            className="w-full bg-slate-900 border border-slate-600 rounded p-3 text-white focus:border-sky-500 outline-none"
-                                            value={formData[field.id] || ''}
-                                            placeholder={field.placeholder || ''}
-                                            onChange={(e) => handleChange(field.id, e.target.value)}
-                                            readOnly={readOnly}
-                                        />
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {!readOnly ? (
-                        <button 
-                            onClick={() => onSave(worksheetId, formData)}
-                            className="mt-6 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded flex items-center justify-center gap-2"
-                        >
-                            <LucideIcon name="Save" size={18} /> Submit to Command
-                        </button>
-                    ) : (
-                        <button 
-                            onClick={onClose}
-                            className="mt-6 w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 rounded flex items-center justify-center gap-2"
-                        >
-                            Close Preview
-                        </button>
-                    )}
+                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><LucideIcon name="FileText" /> {schema.title}</h3>
+                    <div className="space-y-4">
+                        {schema.fields.map(field => (
+                            <div key={field.id}>
+                                <label className="block text-xs font-bold text-slate-400 mb-1 uppercase">{field.label}</label>
+                                <textarea className="w-full bg-slate-900 border border-slate-600 rounded p-3 text-white" value={formData[field.id] || ''} onChange={(e) => handleChange(field.id, e.target.value)} readOnly={readOnly} />
+                            </div>
+                        ))}
+                    </div>
+                    {!readOnly && <button onClick={() => onSave(worksheetId, formData)} className="mt-6 w-full bg-emerald-600 text-white font-bold py-3 rounded">Submit</button>}
+                    {readOnly && <button onClick={onClose} className="mt-6 w-full bg-slate-700 text-white font-bold py-3 rounded">Close</button>}
                 </div>
             );
         };
 
         const StudentView = ({ db, user, appId, globalSettings, onLogout }) => {
             const [teamName, setTeamName] = useState('');
-            const [teamMembers, setTeamMembers] = useState([
-                { role: 'Project Lead', name: '' },
-                { role: 'Historian', name: '' },
-                { role: 'Cyber Analyst', name: '' },
-                { role: 'Energy Scientist', name: '' },
-                { role: 'Comms Officer', name: '' }
-            ]);
+            const [teamMembers, setTeamMembers] = useState([{ role: 'Project Lead', name: '' }]);
             const [tasks, setTasks] = useState([]);
             const [worksheetsData, setWorksheetsData] = useState({});
-            const [loading, setLoading] = useState(true);
             const [activeTab, setActiveTab] = useState('mission');
             const [activeWorksheet, setActiveWorksheet] = useState(null);
-            const [expandedPhases, setExpandedPhases] = useState({});
-
+            
             const { doc, setDoc, onSnapshot } = window.firebaseModules;
 
             useEffect(() => {
                 if (!db || !user) return;
                 const teamDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'teams', user.uid);
-                
-                const unsub = onSnapshot(teamDocRef, (snapshot) => {
-                    if (snapshot.exists()) {
-                        const data = snapshot.data();
-                        setTeamName(data.name || '');
-                        
-                        if (Array.isArray(data.members)) {
-                            setTeamMembers(data.members);
-                        } else if (typeof data.members === 'string') {
-                            setTeamMembers(prev => {
-                                const copy = [...prev];
-                                copy[0].name = data.members;
-                                return copy;
-                            });
-                        }
-
-                        setTasks(data.tasks || []);
-                        setWorksheetsData(data.worksheets || {});
+                const unsub = onSnapshot(teamDocRef, (snap) => {
+                    if (snap.exists()) {
+                        const d = snap.data();
+                        setTeamName(d.name || '');
+                        setTasks(d.tasks || []);
+                        setWorksheetsData(d.worksheets || {});
                     }
-                    setLoading(false);
                 });
                 return () => unsub();
             }, [db, user]);
 
-            useEffect(() => {
-                const cw = globalSettings.currentWeek || 1;
-                const activePhase = PHASES.find(p => cw >= p.weekRange[0] && cw <= p.weekRange[1]);
-                if (activePhase) {
-                    setExpandedPhases({ [activePhase.id]: true });
-                }
-            }, [globalSettings.currentWeek]);
-
-            const saveTeamInfo = async () => {
+            const saveTeamInfo = useCallback(async () => {
                 const teamDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'teams', user.uid);
-                await setDoc(teamDocRef, { name: teamName, members: teamMembers, lastActive: Date.now() }, { merge: true });
-            };
+                await setDoc(teamDocRef, { name: teamName, members: teamMembers }, { merge: true });
+            }, [db, user, teamName, teamMembers]);
 
-            const updateMember = (index, val) => {
-                const newMembers = [...teamMembers];
-                newMembers[index].name = val;
-                setTeamMembers(newMembers);
-            };
-
-            const toggleTask = async (taskId) => {
+            const toggleTask = useCallback(async (taskId) => {
                 const newTasks = tasks.includes(taskId) ? tasks.filter(t => t !== taskId) : [...tasks, taskId];
                 const teamDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'teams', user.uid);
-                await setDoc(teamDocRef, { tasks: newTasks, lastActive: Date.now(), progress: Math.min(100, Math.round((newTasks.length / 16) * 100)) }, { merge: true });
-            };
+                await setDoc(teamDocRef, { tasks: newTasks }, { merge: true });
+            }, [db, user, tasks]);
 
-            const saveWorksheet = async (id, data) => {
+            const saveWorksheet = useCallback(async (id, data) => {
                 const teamDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'teams', user.uid);
-                await setDoc(teamDocRef, { worksheets: { ...worksheetsData, [id]: data }, lastActive: Date.now() }, { merge: true });
-                alert("Worksheet Saved to Command!");
+                await setDoc(teamDocRef, { worksheets: { ...worksheetsData, [id]: data } }, { merge: true });
+                alert("Saved!");
                 setActiveWorksheet(null);
-            };
-
-            const jumpToWorksheet = (id) => {
-                setActiveTab('worksheets');
-                setActiveWorksheet(id);
-            };
-
-            const toggleMissionPhase = (id) => {
-                setExpandedPhases(prev => (prev[id] ? {} : { [id]: true }));
-            };
-
-            if (loading) return <div className="p-10 text-center animate-pulse text-sky-500 font-mono">ESTABLISHING SECURE UPLINK...</div>;
+            }, [db, user, worksheetsData]);
 
             return (
                 <div className="flex flex-col h-screen">
-                    <header className="bg-slate-900 border-b border-slate-800 p-4 flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-sky-600 p-2 rounded text-white"><LucideIcon name="Shield" /></div>
-                            <div>
-                                <h1 className="font-bold text-white tracking-wider">NTUA.SEC</h1>
-                                <p className="text-xs text-sky-400 font-mono">Task Force Ops</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <div className="bg-slate-800 px-3 py-1 rounded border border-slate-700 text-xs font-mono text-sky-400">WEEK {globalSettings.currentWeek || 1}</div>
-                            <button onClick={onLogout} className="text-xs text-slate-500 hover:text-white">Disconnect</button>
-                        </div>
-                    </header>
-
+                    <header className="bg-slate-900 border-b border-slate-800 p-4 flex justify-between items-center"><div className="text-white font-bold">NTUA.SEC</div><button onClick={onLogout} className="text-xs text-slate-500">Disconnect</button></header>
                     <div className="flex flex-1 overflow-hidden">
-                        <aside className="w-64 bg-slate-900/50 border-r border-slate-800 p-4 flex flex-col gap-2 overflow-y-auto">
-                            <div className="mb-4">
-                                <label className="text-xs text-slate-500 font-bold block mb-1">TASK FORCE NAME</label>
-                                <input value={teamName} onChange={e => setTeamName(e.target.value)} onBlur={saveTeamInfo} placeholder="Enter Team Name..." className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm text-white focus:border-sky-500 outline-none" />
-                            </div>
-                            <div className="mb-6">
-                                <label className="text-xs text-slate-500 font-bold block mb-2">OPERATIVES</label>
-                                <div className="space-y-3">
-                                    {teamMembers.map((member, idx) => (
-                                        <div key={idx} className="group">
-                                            <RoleTooltip role={member.role} />
-                                            <input 
-                                                value={member.name} 
-                                                onChange={e => updateMember(idx, e.target.value)} 
-                                                onBlur={saveTeamInfo} 
-                                                placeholder="Assign Agent..." 
-                                                className="w-full bg-slate-800/50 border-b border-slate-700 text-xs text-white focus:border-sky-500 outline-none py-1 transition-colors pl-1" 
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                            {['mission', 'timeline', 'worksheets', 'labs', 'tools'].map(tab => (
-                                <button key={tab} onClick={() => setActiveTab(tab)} className={`p-3 rounded text-left flex items-center gap-3 ${activeTab === tab ? 'bg-slate-800 text-sky-400' : 'text-slate-400 hover:text-white'}`}>
-                                    <LucideIcon name={tab === 'mission' ? 'List' : tab === 'timeline' ? 'Calendar' : tab === 'worksheets' ? 'FileText' : tab === 'labs' ? 'Beaker' : 'Zap'} size={18} />
-                                    <span className="capitalize">{tab}</span>
-                                </button>
-                            ))}
+                        <aside className="w-64 bg-slate-900/50 border-r border-slate-800 p-4 flex flex-col gap-2">
+                            <input value={teamName} onChange={e => setTeamName(e.target.value)} onBlur={saveTeamInfo} placeholder="Team Name" className="bg-slate-800 text-white p-2 rounded mb-4" />
+                            <button onClick={() => setActiveTab('mission')} className="text-slate-400 hover:text-white text-left">Mission</button>
+                            <button onClick={() => setActiveTab('timeline')} className="text-slate-400 hover:text-white text-left">Timeline</button>
+                            <button onClick={() => setActiveTab('worksheets')} className="text-slate-400 hover:text-white text-left">Worksheets</button>
+                            <button onClick={() => setActiveTab('labs')} className="text-slate-400 hover:text-white text-left">Labs</button>
                         </aside>
-
                         <main className="flex-1 overflow-y-auto p-6 bg-slate-900/30">
                             <TabInstructions tab={activeTab} />
                             {activeTab === 'mission' && (
                                 <div className="space-y-6">
                                     {PHASES.map(phase => (
-                                        <div key={phase.id} className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-                                            <div className="p-4 bg-slate-800 border-b border-slate-700 flex justify-between items-center cursor-pointer hover:bg-slate-700/50" onClick={() => toggleMissionPhase(phase.id)}>
-                                                <div className="flex items-center gap-3">
-                                                    <h3 className="font-bold text-white">{phase.title}</h3>
-                                                    <span className="text-xs text-slate-400 font-mono bg-slate-900 px-2 py-0.5 rounded border border-slate-700">{phase.duration}</span>
+                                        <div key={phase.id} className="bg-slate-800 rounded p-4">
+                                            <h3 className="text-white font-bold">{phase.title}</h3>
+                                            {phase.tasks.map(t => (
+                                                <div key={t.id} className="flex items-center gap-2 mt-2">
+                                                    <input type="checkbox" checked={tasks.includes(t.id)} onChange={() => toggleTask(t.id)} />
+                                                    <span className="text-slate-300 text-sm"><GlossaryText text={t.text} /></span>
+                                                    {t.worksheetId && <button onClick={() => { setActiveTab('worksheets'); setActiveWorksheet(t.worksheetId); }} className="text-xs bg-sky-900 text-sky-300 px-2 rounded">Open</button>}
                                                 </div>
-                                                <LucideIcon name={expandedPhases[phase.id] ? "ChevronUp" : "ChevronDown"} className="text-slate-400" />
-                                            </div>
-                                            {expandedPhases[phase.id] && (
-                                                <div className="p-4 border-t border-slate-700 bg-slate-800/50">
-                                                    <p className="text-sm text-sky-200 mb-4 bg-sky-900/20 p-3 rounded border border-sky-800/30">INTEL: <GlossaryText text={phase.intel} /></p>
-                                                    <div className="space-y-2">
-                                                        {phase.tasks.map(task => (
-                                                            <div key={task.id} className="flex flex-col p-3 rounded hover:bg-slate-700/50 border border-transparent hover:border-slate-600 transition-all">
-                                                                <div className="flex items-center justify-between">
-                                                                    <label className="flex items-start gap-3 cursor-pointer flex-1">
-                                                                        <input type="checkbox" checked={tasks.includes(task.id)} onChange={() => toggleTask(task.id)} className="mt-1" />
-                                                                        <div>
-                                                                            <div className="text-sm font-medium text-slate-200"><GlossaryText text={task.text} /> <span className="ml-2 text-xs text-slate-500 font-mono bg-slate-900 px-1 rounded">{task.role}</span></div>
-                                                                        </div>
-                                                                    </label>
-                                                                    {task.worksheetId && (
-                                                                        <button onClick={() => { setActiveTab('worksheets'); setActiveWorksheet(task.worksheetId); }} className="text-xs bg-sky-900/30 hover:bg-sky-800 text-sky-300 px-2 py-1 rounded border border-sky-700 flex items-center gap-1 transition-colors ml-4 whitespace-nowrap">
-                                                                            <LucideIcon name="FileText" size={12} /> Open Doc
-                                                                        </button>
-                                                                    )}
-                                                                </div>
-                                                                <div className="ml-7 mt-1 text-xs text-slate-400 leading-relaxed"><GlossaryText text={task.description} /></div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
+                                            ))}
                                         </div>
                                     ))}
                                 </div>
                             )}
-                            {activeTab === 'timeline' && <TimelineDisplay currentWeek={globalSettings.currentWeek || 1} />}
+                            {activeTab === 'timeline' && <TimelineDisplay currentWeek={globalSettings.currentWeek} />}
                             {activeTab === 'worksheets' && (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <div className="md:col-span-1 space-y-2">
-                                        <h3 className="text-xs font-bold text-slate-500 uppercase mb-2">Available Documents</h3>
-                                        {Object.entries(WORKSHEETS).map(([key, sheet]) => (
-                                            <button key={key} onClick={() => setActiveWorksheet(key)} className={`w-full text-left p-3 rounded border text-sm flex items-center justify-between ${activeWorksheet === key ? 'bg-sky-900/40 border-sky-500 text-white' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}`}>
-                                                {sheet.title}
-                                                {worksheetsData[key] && <LucideIcon name="CheckCircle" size={14} className="text-emerald-500" />}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        {activeWorksheet ? <WorksheetForm worksheetId={activeWorksheet} data={worksheetsData[activeWorksheet]} onSave={saveWorksheet} /> : <div className="h-full flex items-center justify-center text-slate-500 font-mono text-sm border-2 border-dashed border-slate-800 rounded p-12">SELECT A DOCUMENT TO BEGIN</div>}
-                                    </div>
+                                <div>
+                                    {!activeWorksheet && Object.keys(WORKSHEETS).map(k => (
+                                        <button key={k} onClick={() => setActiveWorksheet(k)} className="block w-full text-left p-3 bg-slate-800 border border-slate-700 text-white mb-2 rounded">{WORKSHEETS[k].title}</button>
+                                    ))}
+                                    {activeWorksheet && <WorksheetForm worksheetId={activeWorksheet} data={worksheetsData[activeWorksheet]} onSave={saveWorksheet} />}
                                 </div>
                             )}
                             {activeTab === 'labs' && <LabSimulations />}
-                            {activeTab === 'tools' && (
-                                <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><LucideIcon name="Calculator" /> Load Balancer</h3>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div><label className="text-xs text-slate-400">Load (Watts)</label><input type="number" defaultValue="4000" className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-white" /></div>
-                                        <div><label className="text-xs text-slate-400">Voltage (V)</label><input type="number" defaultValue="240" disabled className="w-full bg-slate-900 border border-slate-600 rounded p-2 text-slate-500" /></div>
-                                    </div>
-                                    <div className="mt-4 p-4 bg-slate-900 rounded text-center font-mono text-xl text-emerald-400">16.6 AMPS</div>
-                                </div>
-                            )}
                         </main>
                     </div>
                 </div>
@@ -1563,236 +518,103 @@
         const TeacherView = ({ db, appId, globalSettings, onLogout }) => {
             const [teams, setTeams] = useState([]);
             const [view, setView] = useState('dashboard');
-            const [selectedTeam, setSelectedTeam] = useState(null);
-            const [selectedLessonPhase, setSelectedLessonPhase] = useState(1);
             const [previewDoc, setPreviewDoc] = useState(null);
             const [activeDeck, setActiveDeck] = useState(null);
+            const [selectedLessonPhase, setSelectedLessonPhase] = useState(1);
             
             const { collection, onSnapshot, doc, setDoc } = window.firebaseModules;
 
             useEffect(() => {
                 if (!db) return;
-                const teamsCol = collection(db, 'artifacts', appId, 'public', 'data', 'teams');
-                const unsub = onSnapshot(teamsCol, (snap) => setTeams(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+                const unsub = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'teams'), (snap) => {
+                    setTeams(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                });
                 return () => unsub();
             }, [db]);
 
-            const updateCurrentWeek = async (newWeek) => {
-                const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'global');
-                await setDoc(settingsRef, { currentWeek: newWeek }, { merge: true });
-            };
+            const updateCurrentWeek = useCallback(async (newWeek) => {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'global'), { currentWeek: newWeek }, { merge: true });
+            }, [db]);
 
             return (
                 <div className="flex flex-col h-screen bg-stone-900 text-stone-200">
-                    <header className="bg-stone-900 border-b border-stone-800 p-4 flex justify-between items-center shadow-md">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-orange-600 p-2 rounded text-white"><LucideIcon name="Eye" /></div>
-                            <div><h1 className="font-bold text-white tracking-wider">COMMAND CENTER</h1><p className="text-xs text-orange-500 font-mono">Instructor Oversight</p></div>
-                        </div>
-                        <div className="flex gap-4 items-center">
-                            <nav className="flex gap-2">
-                                <button onClick={() => setView('dashboard')} className={`px-3 py-1 rounded text-sm ${view === 'dashboard' ? 'bg-orange-900 text-white' : 'text-stone-400 hover:text-white'}`}>Dashboard</button>
-                                <button onClick={() => setView('lessons')} className={`px-3 py-1 rounded text-sm ${view === 'lessons' ? 'bg-orange-900 text-white' : 'text-stone-400 hover:text-white'}`}>Lesson Plans</button>
-                                <button onClick={() => setView('mission')} className={`px-3 py-1 rounded text-sm ${view === 'mission' ? 'bg-orange-900 text-white' : 'text-stone-400 hover:text-white'}`}>Mission Control</button>
-                            </nav>
-                            <button onClick={onLogout} className="text-xs text-stone-500 hover:text-white border-l border-stone-700 pl-4">Exit Command</button>
+                    <header className="p-4 bg-stone-900 border-b border-stone-800 flex justify-between">
+                        <h1 className="font-bold text-white">COMMAND CENTER</h1>
+                        <div className="flex gap-4">
+                            <button onClick={() => setView('dashboard')} className="text-stone-400 hover:text-white">Dashboard</button>
+                            <button onClick={() => setView('lessons')} className="text-stone-400 hover:text-white">Lessons</button>
+                            <button onClick={() => setView('mission')} className="text-stone-400 hover:text-white">Mission</button>
+                            <button onClick={onLogout} className="text-stone-500">Exit</button>
                         </div>
                     </header>
                     <main className="flex-1 overflow-hidden flex relative">
-                        {/* Modal for Worksheet Preview */}
-                        {previewDoc && (
-                            <div className="absolute inset-0 bg-stone-900/90 backdrop-blur z-50 flex items-center justify-center p-8">
-                                <div className="w-full max-w-4xl bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden max-h-full overflow-y-auto">
-                                    <div className="p-4 bg-slate-900 border-b border-slate-700 flex justify-between items-center">
-                                        <h3 className="font-bold text-white flex items-center gap-2"><LucideIcon name="FileText" /> Student View Preview</h3>
-                                        <button onClick={() => setPreviewDoc(null)} className="text-slate-400 hover:text-white"><LucideIcon name="Zap" className="rotate-45" /></button>
-                                    </div>
-                                    <div className="p-6">
-                                        <WorksheetForm worksheetId={previewDoc} data={{}} readOnly={true} onClose={() => setPreviewDoc(null)} />
-                                    </div>
+                         {previewDoc && (
+                            <div className="absolute inset-0 bg-stone-900/90 z-50 flex items-center justify-center p-8">
+                                <div className="w-full max-w-4xl bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-6 relative">
+                                    <button onClick={() => setPreviewDoc(null)} className="absolute top-4 right-4 text-white">Close</button>
+                                    <WorksheetForm worksheetId={previewDoc} data={{}} readOnly={true} />
                                 </div>
                             </div>
                         )}
-
-                        {/* Modal for Presentation */}
-                        {activeDeck && (
-                            <PresentationModal presentation={activeDeck} onClose={() => setActiveDeck(null)} />
-                        )}
-
+                        {activeDeck && <PresentationModal presentation={activeDeck} onClose={() => setActiveDeck(null)} />}
+                        
                         {view === 'dashboard' && (
-                            <div className="p-8 overflow-y-auto flex gap-6 w-full">
-                                <div className="flex-1 space-y-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="bg-stone-800 p-4 rounded border border-stone-700">
-                                            <div className="text-stone-400 text-xs uppercase">Active Teams</div>
-                                            <div className="text-3xl font-bold text-orange-500">{teams.length}</div>
+                            <div className="p-8 w-full">
+                                <div className="bg-stone-800 rounded p-4">
+                                    <h3 className="text-white font-bold mb-4">Teams</h3>
+                                    {teams.map(t => (
+                                        <div key={t.id} className="p-2 border-b border-stone-700 flex justify-between">
+                                            <span>{t.name || 'Unnamed'}</span>
+                                            <span>Progress: {t.tasks ? t.tasks.length : 0}</span>
                                         </div>
-                                        <div className="bg-stone-800 p-4 rounded border border-stone-700">
-                                            <div className="text-stone-400 text-xs uppercase">Worksheets Submitted</div>
-                                            <div className="text-3xl font-bold text-sky-500">{teams.reduce((acc, t) => acc + (t.worksheets ? Object.keys(t.worksheets).length : 0), 0)}</div>
-                                        </div>
-                                    </div>
-                                    <div className="bg-stone-800 rounded-lg border border-stone-700 overflow-hidden">
-                                        <div className="p-4 bg-stone-800 border-b border-stone-700 flex justify-between"><h3 className="font-bold text-white">Live Roster</h3><span className="text-xs font-mono text-stone-500 flex items-center gap-1"><span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> LIVE SYNC</span></div>
-                                        <table className="w-full text-left">
-                                            <thead className="bg-stone-900 text-xs text-stone-500 uppercase"><tr><th className="p-4">Team Name</th><th className="p-4">Progress</th><th className="p-4">Docs</th><th className="p-4 text-right">Action</th></tr></thead>
-                                            <tbody className="divide-y divide-stone-700">
-                                                {teams.map(team => (
-                                                    <tr key={team.id} className="hover:bg-stone-700/50">
-                                                        <td className="p-4 font-medium text-white">{team.name || "Unnamed Unit"}</td>
-                                                        <td className="p-4"><div className="w-24 bg-stone-700 h-2 rounded-full"><div className="bg-orange-500 h-full" style={{width: `${team.progress || 0}%`}}></div></div></td>
-                                                        <td className="p-4 text-sky-400">{team.worksheets ? Object.keys(team.worksheets).length : 0}</td>
-                                                        <td className="p-4 text-right"><button onClick={() => setSelectedTeam(team)} className="text-xs text-stone-400 hover:text-white underline">Inspect</button></td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                    ))}
                                 </div>
-                                {selectedTeam && (
-                                    <div className="w-1/3 bg-stone-800 border-l border-stone-700 p-6 overflow-y-auto">
-                                        <h3 className="font-bold text-white mb-1 flex justify-between items-center">{selectedTeam.name}<button onClick={() => setSelectedTeam(null)} className="text-xs text-stone-500 hover:text-white">Close</button></h3>
-                                        
-                                        <div className="mb-6">
-                                            <h4 className="text-xs font-bold text-stone-500 uppercase mb-2">Task Force Roster</h4>
-                                            {Array.isArray(selectedTeam.members) ? (
-                                                <div className="bg-stone-900 rounded border border-stone-700 divide-y divide-stone-700">
-                                                    {selectedTeam.members.map((m, i) => (
-                                                        <div key={i} className="flex justify-between p-2 text-xs">
-                                                            <span className="text-stone-500 font-mono">{m.role}</span>
-                                                            <span className="text-white font-bold">{m.name || "—"}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="text-xs text-stone-400 whitespace-pre-wrap">{selectedTeam.members || "No members listed"}</div>
-                                            )}
-                                        </div>
-
-                                        <h4 className="text-xs font-bold text-stone-500 uppercase mb-2">Submitted Worksheets</h4>
-                                        <div className="space-y-4">
-                                            {selectedTeam.worksheets && Object.entries(selectedTeam.worksheets).map(([key, data]) => (
-                                                <div key={key} className="bg-stone-900 p-3 rounded text-sm border border-stone-700">
-                                                    <div className="font-bold text-sky-500 mb-2 uppercase text-xs">{WORKSHEETS[key]?.title || key}</div>
-                                                    {Object.entries(data).map(([field, val]) => (
-                                                        <div key={field} className="mb-2"><div className="text-xs text-stone-500">{field}</div><div className="text-stone-300 break-words">{val}</div></div>
-                                                    ))}
-                                                </div>
-                                            ))}
-                                            {(!selectedTeam.worksheets || Object.keys(selectedTeam.worksheets).length === 0) && <div className="text-stone-500 text-sm italic">No documents submitted yet.</div>}
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         )}
                         {view === 'lessons' && (
-                            <div className="p-8 w-full flex gap-8 h-full">
-                                <div className="w-64 bg-stone-800 rounded border border-stone-700 h-full flex flex-col">
-                                    <div className="p-4 border-b border-stone-700 font-bold text-white uppercase text-sm">Lesson Overview</div>
+                            <div className="p-8 flex gap-8 w-full">
+                                <div className="w-64 bg-stone-800 rounded h-full">
                                     {Object.keys(LESSON_PLANS).map(id => (
-                                        <button 
-                                            key={id}
-                                            onClick={() => setSelectedLessonPhase(id)}
-                                            className={`p-4 text-left text-sm border-b border-stone-700/50 hover:bg-stone-700 transition-colors
-                                                ${selectedLessonPhase == id ? 'bg-orange-900/50 text-white border-l-4 border-l-orange-500' : 'text-stone-400'}
-                                            `}
-                                        >
+                                        <button key={id} onClick={() => setSelectedLessonPhase(id)} className="block w-full text-left p-4 border-b border-stone-700 text-stone-400 hover:text-white">
                                             {LESSON_PLANS[id].title}
                                         </button>
                                     ))}
                                 </div>
-                                <div className="flex-1 bg-stone-800 rounded border border-stone-700 p-8 overflow-y-auto">
-                                    <h2 className="text-2xl font-bold text-white mb-6 border-b border-stone-700 pb-4">
-                                        {LESSON_PLANS[selectedLessonPhase].title} Curriculum
-                                    </h2>
-                                    <div className="space-y-8">
-                                        {LESSON_PLANS[selectedLessonPhase].subjects.map((subj, idx) => (
-                                            <div key={idx} className="bg-stone-900/50 rounded border border-stone-700 p-6">
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <div>
-                                                        <h3 className="text-xl font-bold text-orange-400">{subj.subject}</h3>
-                                                        <p className="text-stone-400 text-sm">{subj.topic}</p>
-                                                    </div>
-                                                    <span className="bg-stone-800 text-stone-500 text-xs px-2 py-1 rounded font-mono border border-stone-700">
-                                                        {subj.alignment}
-                                                    </span>
-                                                </div>
-                                                
-                                                <div className="space-y-4">
-                                                    {subj.days.map((day, dIdx) => (
-                                                        <div key={dIdx} className="bg-stone-800 rounded p-4 border border-stone-700">
-                                                            <div className="flex justify-between items-center mb-2">
-                                                                <span className="font-bold text-orange-400 text-sm">{day.day}: {day.title}</span>
-                                                                {day.worksheetId && (
-                                                                    <button 
-                                                                        onClick={() => setPreviewDoc(day.worksheetId)}
-                                                                        className="text-xs bg-sky-900/50 hover:bg-sky-800 text-sky-300 px-3 py-1.5 rounded border border-sky-700 flex items-center gap-2 transition-colors"
-                                                                    >
-                                                                        <LucideIcon name="ExternalLink" size={14} /> Preview Student Doc
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                            <p className="text-stone-300 text-sm mb-3 italic border-l-2 border-stone-600 pl-2">{day.detail}</p>
-                                                            
-                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                                                                <div>
-                                                                    <span className="font-bold text-stone-500 uppercase block mb-1">Materials</span>
-                                                                    <ul className="list-disc list-inside text-stone-400">
-                                                                        {day.materials?.map((m, i) => <li key={i}>{m}</li>) || <li>No specific materials.</li>}
-                                                                    </ul>
-                                                                </div>
-                                                                <div>
-                                                                    <span className="font-bold text-stone-500 uppercase block mb-1">Student Activity</span>
-                                                                    <p className="text-stone-400">{day.activity}</p>
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Presentation Button */}
-                                                            {day.presentation && (
-                                                                <div className="mt-4 pt-3 border-t border-stone-700 flex items-center justify-between bg-stone-900/50 p-2 rounded">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <LucideIcon name="Presentation" className="text-orange-400" size={16} />
-                                                                        <span className="text-stone-300 font-bold text-sm">{day.presentation.title}</span>
-                                                                        <span className="text-stone-500 text-[10px]">({day.presentation.slides.length} slides)</span>
-                                                                    </div>
-                                                                    <button 
-                                                                        onClick={() => setActiveDeck(day.presentation)}
-                                                                        className="text-xs bg-orange-700 hover:bg-orange-600 text-white px-3 py-1 rounded transition-colors shadow-lg"
-                                                                    >
-                                                                        Launch Deck
-                                                                    </button>
-                                                                </div>
-                                                            )}
+                                <div className="flex-1 bg-stone-800 rounded p-8 overflow-y-auto">
+                                    <h2 className="text-2xl font-bold text-white mb-6">{LESSON_PLANS[selectedLessonPhase].title}</h2>
+                                    {LESSON_PLANS[selectedLessonPhase].subjects.map((subj, i) => (
+                                        <div key={i} className="mb-8">
+                                            <h3 className="text-xl text-orange-400 font-bold">{subj.subject}</h3>
+                                            {subj.days.map((day, j) => (
+                                                <div key={j} className="bg-stone-900 p-4 rounded mt-2">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-white font-bold">{day.day}: {day.title}</span>
+                                                        <div className="flex gap-2">
+                                                            {day.worksheetId && <button onClick={() => setPreviewDoc(day.worksheetId)} className="text-xs bg-sky-900 px-2 py-1 rounded text-sky-200">Preview Doc</button>}
+                                                            {day.presentation && <button onClick={() => setActiveDeck(day.presentation)} className="text-xs bg-orange-700 px-2 py-1 rounded text-white">Launch Deck</button>}
                                                         </div>
-                                                    ))}
+                                                    </div>
+                                                    <p className="text-stone-400 text-sm mt-1">{day.detail}</p>
                                                 </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                            ))}
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         )}
                         {view === 'mission' && (
-                            <div className="p-8 w-full flex gap-8">
-                                <div className="w-1/3 space-y-8">
-                                    <div className="bg-stone-800 p-6 rounded border border-stone-700">
-                                        <h3 className="font-bold text-white mb-4 flex items-center gap-2"><LucideIcon name="Settings" /> Global Controls</h3>
-                                        <div className="space-y-4">
-                                            <div>
-                                                <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Current Operation Week</label>
-                                                <div className="flex items-center gap-4 bg-stone-900 p-2 rounded border border-stone-700">
-                                                    <button onClick={() => updateCurrentWeek(Math.max(1, (globalSettings.currentWeek || 1) - 1))} className="p-2 hover:bg-stone-800 rounded text-stone-400 hover:text-white"><LucideIcon name="ChevronLeft" /></button>
-                                                    <div className="flex-1 text-center"><div className="text-2xl font-bold text-white">Week {globalSettings.currentWeek || 1}</div><div className="text-xs text-orange-500 uppercase font-bold">Active Status</div></div>
-                                                    <button onClick={() => updateCurrentWeek(Math.min(8, (globalSettings.currentWeek || 1) + 1))} className="p-2 hover:bg-stone-800 rounded text-stone-400 hover:text-white"><LucideIcon name="ChevronRight" /></button>
-                                                </div>
-                                                <p className="text-xs text-stone-500 mt-2">Updating this will change the active timeline phase for all students instantly.</p>
-                                            </div>
-                                        </div>
+                            <div className="p-8 w-full">
+                                <div className="bg-stone-800 p-6 rounded mb-8">
+                                    <h3 className="text-white font-bold mb-4">Global Controls</h3>
+                                    <div className="flex items-center gap-4">
+                                        <button onClick={() => updateCurrentWeek(Math.max(1, globalSettings.currentWeek - 1))} className="text-white bg-stone-700 px-3 py-1 rounded">-</button>
+                                        <span className="text-2xl text-white font-bold">Week {globalSettings.currentWeek}</span>
+                                        <button onClick={() => updateCurrentWeek(Math.min(8, globalSettings.currentWeek + 1))} className="text-white bg-stone-700 px-3 py-1 rounded">+</button>
                                     </div>
                                 </div>
-                                <div className="flex-1 bg-stone-900/50 rounded border border-stone-800 p-6">
-                                    <h3 className="font-bold text-stone-400 mb-6 uppercase text-sm">Timeline Preview (Student View)</h3>
-                                    <div className="opacity-100"><TimelineDisplay currentWeek={globalSettings.currentWeek || 1} /></div>
+                                <div className="bg-stone-800 p-6 rounded">
+                                    <h3 className="text-stone-400 font-bold mb-4">Timeline Preview</h3>
+                                    <TimelineDisplay currentWeek={globalSettings.currentWeek} />
                                 </div>
                             </div>
                         )}
@@ -1803,28 +625,16 @@
 
         const LandingPage = ({ globalSettings, onSelectRole }) => {
             return (
-                <div className="h-screen bg-slate-950 flex flex-col overflow-hidden">
-                    <div className="bg-slate-900 p-6 border-b border-slate-800 w-full shrink-0">
-                        <div className="max-w-5xl mx-auto">
-                            <div className="flex items-center gap-3 mb-4">
-                                <h2 className="text-xl font-bold text-white">Project Timeline</h2>
-                                <span className="text-xs text-slate-400 font-mono px-2 py-0.5 rounded border border-slate-700">Live Status</span>
-                            </div>
-                            <TimelineDisplay currentWeek={globalSettings.currentWeek || 1} orientation="horizontal" />
-                        </div>
+                <div className="h-screen bg-slate-950 flex flex-col">
+                    <div className="bg-slate-900 p-6 border-b border-slate-800">
+                        <TimelineDisplay currentWeek={globalSettings.currentWeek} orientation="horizontal" />
                     </div>
-                    <div className="flex-1 flex items-center justify-center p-8 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]">
-                        <div className="max-w-md w-full bg-slate-900/90 backdrop-blur p-8 rounded-xl border border-slate-800 shadow-2xl text-center">
-                            <div className="mb-6 flex justify-center"><div className="bg-sky-500/10 p-4 rounded-full border border-sky-500/20 animate-pulse"><LucideIcon name="Shield" size={48} className="text-sky-500" /></div></div>
-                            <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Project Jóhonaaʼéí</h1>
-                            <div className="flex items-center justify-center gap-2 mb-8"><span className="w-2 h-2 rounded-full bg-emerald-500"></span><span className="text-slate-400 font-mono text-sm">SECURE TERMINAL ACTIVE</span></div>
+                    <div className="flex-1 flex items-center justify-center">
+                        <div className="bg-slate-900 p-8 rounded-xl border border-slate-800 shadow-2xl text-center">
+                            <h1 className="text-3xl font-bold text-white mb-8">Project Jóhonaaʼéí</h1>
                             <div className="space-y-4">
-                                <button onClick={() => onSelectRole('student')} className="w-full p-4 rounded-lg border border-sky-900 bg-sky-900/20 hover:bg-sky-900/40 flex items-center gap-4 text-left group transition-all hover:border-sky-500 hover:shadow-[0_0_20px_rgba(14,165,233,0.3)]">
-                                    <div className="bg-sky-600 p-3 rounded text-white shadow-lg"><LucideIcon name="User" /></div><div><div className="font-bold text-white group-hover:text-sky-300">Task Force Member</div><div className="text-xs text-sky-500 font-mono">Student Access</div></div>
-                                </button>
-                                <button onClick={() => onSelectRole('teacher')} className="w-full p-4 rounded-lg border border-orange-900 bg-orange-900/20 hover:bg-orange-900/40 flex items-center gap-4 text-left group transition-all hover:border-orange-500 hover:shadow-[0_0_20px_rgba(249,115,22,0.3)]">
-                                    <div className="bg-orange-700 p-3 rounded text-white shadow-lg"><LucideIcon name="Eye" /></div><div><div className="font-bold text-white group-hover:text-orange-300">Command Oversight</div><div className="text-xs text-orange-500 font-mono">Instructor Access</div></div>
-                                </button>
+                                <button onClick={() => onSelectRole('student')} className="w-full p-4 rounded border border-sky-900 bg-sky-900/20 text-white hover:bg-sky-900/40">Task Force Member</button>
+                                <button onClick={() => onSelectRole('teacher')} className="w-full p-4 rounded border border-orange-900 bg-orange-900/20 text-white hover:bg-orange-900/40">Command Oversight</button>
                             </div>
                         </div>
                     </div>
@@ -1841,24 +651,18 @@
                 if (!db || !appId || !user) return;
                 const { doc, onSnapshot, setDoc } = window.firebaseModules;
                 const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'global');
-                
                 const unsub = onSnapshot(settingsRef, (snap) => {
-                    if (snap.exists()) {
-                        setGlobalSettings(snap.data());
-                    } else {
-                        setDoc(settingsRef, { currentWeek: 1 }, { merge: true });
-                    }
-                }, (err) => console.error("Global Settings Sync Error:", err));
+                    if (snap.exists()) setGlobalSettings(snap.data());
+                    else setDoc(settingsRef, { currentWeek: 1 }, { merge: true });
+                }, (err) => console.error(err));
                 return () => unsub();
             }, [db, appId, user]);
 
-            if (error) return <div className="h-screen bg-slate-900 flex items-center justify-center text-red-500">{error}</div>;
-            if (!db || !user) return <div className="h-screen bg-slate-900 flex items-center justify-center text-slate-500 font-mono animate-pulse">INITIALIZING UPLINK...</div>;
+            if (error) return <div className="text-red-500">{error}</div>;
+            if (!db || !user) return <div className="text-white">Loading...</div>;
 
             if (!role) return <LandingPage globalSettings={globalSettings} onSelectRole={setRole} />;
-            return role === 'student' 
-                ? <StudentView db={db} user={user} appId={appId} globalSettings={globalSettings} onLogout={() => setRole(null)} /> 
-                : <TeacherView db={db} appId={appId} globalSettings={globalSettings} onLogout={() => setRole(null)} />;
+            return role === 'student' ? <StudentView db={db} user={user} appId={appId} globalSettings={globalSettings} onLogout={() => setRole(null)} /> : <TeacherView db={db} appId={appId} globalSettings={globalSettings} onLogout={() => setRole(null)} />;
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
